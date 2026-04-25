@@ -317,7 +317,7 @@ class DayBookPanel(ttk.Frame):
         try:
             from modules.reporting import day_book
             cid = self.session.get("company_id", "default")
-            data = day_book(cid, self.from_var.get() or None)
+            data = day_book(cid, self.from_var.get() or None, self.to_var.get() or None)
             rows = []
             total_dr = total_cr = 0.0
             for e in data.get("entries", []):

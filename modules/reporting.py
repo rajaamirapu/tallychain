@@ -206,16 +206,20 @@ def cash_flow(company_id: str = "default",
 # ─── Day Book ────────────────────────────────────────────────────────────────
 
 def day_book(company_id: str = "default",
-             date: Optional[str] = None) -> dict:
+             from_date: Optional[str] = None,
+             to_date: Optional[str] = None) -> dict:
     db = get_db()
     vouchers_data = db.col_find("vouchers", company_id=company_id, is_posted=True)
-    if date:
-        vouchers_data = [v for v in vouchers_data if v.get("date") == date]
+    if from_date:
+        vouchers_data = [v for v in vouchers_data if v.get("date", "") >= from_date]
+    if to_date:
+        vouchers_data = [v for v in vouchers_data if v.get("date", "") <= to_date]
     vouchers = [Voucher(**v) for v in vouchers_data]
     vouchers.sort(key=lambda v: (v.date, v.voucher_number))
+    period = f"{from_date or 'Inception'} to {to_date or 'Present'}"
     return {
         "report": "Day Book",
-        "date": date or "All",
+        "date": period,
         "total_entries": len(vouchers),
         "entries": [v.model_dump() for v in vouchers],
     }
