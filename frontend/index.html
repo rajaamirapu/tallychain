@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TallyChain — Blockchain Accounting</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #21253a;
+    --border: #2e3348; --accent: #4f8ef7; --accent2: #6ee7b7;
+    --danger: #f87171; --warn: #fbbf24; --success: #34d399;
+    --text: #e2e8f0; --muted: #64748b; --sidebar-w: 220px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg);
+         color: var(--text); min-height: 100vh; }
+  #root { display: flex; min-height: 100vh; }
+
+  /* ── Sidebar ── */
+  .sidebar { width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border);
+             display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; z-index: 50; }
+  .sidebar-logo { padding: 18px 16px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo h1 { font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: .5px; }
+  .sidebar-logo span { font-size: 11px; color: var(--muted); display: block; margin-top: 2px; }
+  .nav-section { padding: 8px 0; }
+  .nav-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+               color: var(--muted); padding: 8px 16px 4px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 16px;
+              cursor: pointer; font-size: 13.5px; color: var(--muted);
+              transition: all .15s; border-left: 3px solid transparent; }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); background: rgba(79,142,247,.1);
+                     border-left-color: var(--accent); }
+  .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-bottom { margin-top: auto; padding: 12px; border-top: 1px solid var(--border); }
+  .user-badge { display: flex; align-items: center; gap: 10px; padding: 8px;
+                background: var(--surface2); border-radius: 8px; cursor: pointer; }
+  .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent);
+                 display: flex; align-items: center; justify-content: center;
+                 font-weight: 700; font-size: 13px; color: white; flex-shrink: 0; }
+  .user-info { flex: 1; min-width: 0; }
+  .user-info .name { font-size: 12.5px; font-weight: 600; white-space: nowrap;
+                     overflow: hidden; text-overflow: ellipsis; }
+  .user-info .role { font-size: 11px; color: var(--muted); }
+
+  /* ── Main layout ── */
+  .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border);
+            padding: 0 24px; height: 56px; display: flex; align-items: center;
+            justify-content: space-between; position: sticky; top: 0; z-index: 40; }
+  .topbar-title { font-size: 15px; font-weight: 600; }
+  .topbar-actions { display: flex; gap: 10px; align-items: center; }
+  .content { padding: 24px; flex: 1; }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between;
+                 margin-bottom: 16px; }
+  .card-title { font-size: 14px; font-weight: 600; }
+
+  /* ── Dashboard grid ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+               padding: 18px; }
+  .stat-card .label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .stat-card .value { font-size: 24px; font-weight: 700; }
+  .stat-card .sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .stat-card.green .value { color: var(--success); }
+  .stat-card.red .value { color: var(--danger); }
+  .stat-card.blue .value { color: var(--accent); }
+  .stat-card.yellow .value { color: var(--warn); }
+
+  /* ── Buttons ── */
+  .btn { padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer;
+         font-size: 13px; font-weight: 500; transition: all .15s; display: inline-flex;
+         align-items: center; gap: 6px; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #3b7de8; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-success { background: var(--success); color: #0f1117; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--surface2); color: var(--muted); font-weight: 600; font-size: 11px;
+       text-transform: uppercase; letter-spacing: .5px; padding: 10px 12px;
+       text-align: left; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: rgba(255,255,255,.02); }
+  .badge { padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: rgba(52,211,153,.15); color: var(--success); }
+  .badge-red { background: rgba(248,113,113,.15); color: var(--danger); }
+  .badge-yellow { background: rgba(251,191,36,.15); color: var(--warn); }
+  .badge-blue { background: rgba(79,142,247,.15); color: var(--accent); }
+  .badge-gray { background: var(--surface2); color: var(--muted); }
+
+  /* ── Forms ── */
+  .form-grid { display: grid; gap: 14px; }
+  .form-grid-2 { grid-template-columns: 1fr 1fr; }
+  .form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .form-control { background: var(--surface2); border: 1px solid var(--border);
+                  color: var(--text); padding: 8px 12px; border-radius: 7px; font-size: 13px;
+                  outline: none; transition: border-color .15s; }
+  .form-control:focus { border-color: var(--accent); }
+  select.form-control option { background: var(--surface2); }
+
+  /* ── Modal ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6);
+                   display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+           padding: 24px; min-width: 480px; max-width: 720px; width: 90%; max-height: 90vh;
+           overflow-y: auto; }
+  .modal-header { display: flex; justify-content: space-between; align-items: center;
+                  margin-bottom: 20px; }
+  .modal-title { font-size: 16px; font-weight: 700; }
+  .modal-close { background: none; border: none; color: var(--muted); cursor: pointer;
+                 font-size: 20px; line-height: 1; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .tab { padding: 10px 18px; cursor: pointer; font-size: 13px; color: var(--muted);
+         border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Alert ── */
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+  .alert-error { background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.3);
+                 color: var(--danger); }
+  .alert-success { background: rgba(52,211,153,.1); border: 1px solid rgba(52,211,153,.3);
+                   color: var(--success); }
+  .alert-info { background: rgba(79,142,247,.1); border: 1px solid rgba(79,142,247,.3);
+                color: var(--accent); }
+
+  /* ── Blockchain ── */
+  .chain-block { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+                 padding: 14px; margin-bottom: 10px; position: relative; }
+  .chain-block::after { content: '↓'; position: absolute; bottom: -18px; left: 50%;
+                        transform: translateX(-50%); color: var(--accent); font-size: 16px; }
+  .chain-block:last-child::after { display: none; }
+  .chain-block .hash { font-family: monospace; font-size: 11px; color: var(--muted);
+                       word-break: break-all; }
+  .chain-block .block-header { display: flex; justify-content: space-between;
+                                align-items: center; margin-bottom: 8px; }
+  .chain-block .block-idx { font-weight: 700; color: var(--accent); font-size: 14px; }
+
+  /* ── Loading ── */
+  .spinner { width: 24px; height: 24px; border: 3px solid var(--border);
+             border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-center { display: flex; align-items: center; justify-content: center;
+                    padding: 60px; flex-direction: column; gap: 16px; }
+  .empty-state { text-align: center; padding: 40px; color: var(--muted); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* ── Login ── */
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center;
+                background: var(--bg); }
+  .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+                padding: 40px; width: 380px; }
+  .login-logo { text-align: center; margin-bottom: 32px; }
+  .login-logo h1 { font-size: 28px; font-weight: 800; color: var(--accent); }
+  .login-logo p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  /* ── Number formatting ── */
+  .num { font-family: 'Courier New', monospace; }
+  .num-dr { color: var(--accent); }
+  .num-cr { color: var(--success); }
+  .num-neg { color: var(--danger); }
+
+  /* ── Misc ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .text-muted { color: var(--muted); }
+  .text-sm { font-size: 12px; }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .gap-2 { gap: 8px; }
+  .gap-3 { gap: 12px; }
+  .justify-between { justify-content: space-between; }
+  .mt-1 { margin-top: 4px; }
+  .mt-2 { margin-top: 8px; }
+  .mt-3 { margin-top: 12px; }
+  .mb-2 { margin-bottom: 8px; }
+  .fw-600 { font-weight: 600; }
+  .color-success { color: var(--success); }
+  .color-danger { color: var(--danger); }
+  .color-accent { color: var(--accent); }
+  .monospace { font-family: monospace; font-size: 11px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+const API = "http://localhost:8000/api";
+let _token = localStorage.getItem("tc_token") || "";
+
+async function api(method, path, body = null, params = {}) {
+  const url = new URL(API + path, window.location.origin);
+  Object.entries(params).forEach(([k,v]) => v != null && url.searchParams.set(k, v));
+  const res = await fetch(url.toString(), {
+    method,
+    headers: { "Content-Type": "application/json",
+               ..._token ? { Authorization: "Bearer " + _token } : {} },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401) { _token = ""; localStorage.removeItem("tc_token"); window.location.reload(); }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Request failed");
+  return data;
+}
+
+function fmt(n, dec=2) {
+  if (n == null) return "—";
+  return Number(n).toLocaleString("en-IN", {minimumFractionDigits: dec, maximumFractionDigits: dec});
+}
+function fmtDate(d) { return d ? d.slice(0,10) : ""; }
+
+// ─── Login Page ──────────────────────────────────────────────────────────────
+function LoginPage({ onLogin }) {
+  const [form, setForm] = useState({ username: "admin", password: "Admin@123" });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError("");
+    try {
+      const data = await api("POST", "/auth/login", form);
+      _token = data.access_token;
+      localStorage.setItem("tc_token", _token);
+      onLogin(data);
+    } catch(e) { setError(e.message); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo">
+          <h1>⛓ TallyChain</h1>
+          <p>Blockchain-Powered Enterprise Accounting</p>
+        </div>
+        {error && <div className="alert alert-error">{error}</div>}
+        <form onSubmit={submit} className="form-grid">
+          <div className="form-group">
+            <label>Username</label>
+            <input className="form-control" value={form.username}
+              onChange={e => setForm({...form, username: e.target.value})} />
+          </div>
+          <div className="form-group">
+            <label>Password</label>
+            <input type="password" className="form-control" value={form.password}
+              onChange={e => setForm({...form, password: e.target.value})} />
+          </div>
+          <button className="btn btn-primary" type="submit" disabled={loading} style={{marginTop:8}}>
+            {loading ? "Signing in…" : "Sign In"}
+          </button>
+        </form>
+        <p className="text-muted text-sm" style={{marginTop:16,textAlign:"center"}}>
+          Default: admin / Admin@123
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+function Dashboard() {
+  const [stats, setStats] = useState(null);
+  const [pl, setPl] = useState(null);
+  const [bcStats, setBcStats] = useState(null);
+  const [recentVouchers, setRecentVouchers] = useState([]);
+
+  useEffect(() => {
+    Promise.all([
+      api("GET", "/blockchain/stats").then(setBcStats),
+      api("GET", "/reports/profit-loss").then(setPl),
+      api("GET", "/vouchers", null, {limit: 5}).then(setRecentVouchers),
+    ]).catch(()=>{});
+  }, []);
+
+  const today = new Date().toISOString().slice(0,10);
+  const fy_start = `${new Date().getFullYear()}-04-01`;
+
+  return (
+    <div>
+      <div className="stat-grid">
+        <div className="stat-card blue">
+          <div className="label">⛓ Blockchain Blocks</div>
+          <div className="value">{bcStats?.total_blocks ?? "…"}</div>
+          <div className="sub">{bcStats?.total_transactions ?? 0} transactions recorded</div>
+        </div>
+        <div className="stat-card green">
+          <div className="label">📈 Total Income</div>
+          <div className="value">₹{fmt(pl?.total_income ?? 0, 0)}</div>
+          <div className="sub">Current period</div>
+        </div>
+        <div className="stat-card red">
+          <div className="label">📉 Total Expenses</div>
+          <div className="value">₹{fmt(pl?.total_expenses ?? 0, 0)}</div>
+          <div className="sub">Current period</div>
+        </div>
+        <div className={`stat-card ${(pl?.net_profit ?? 0) >= 0 ? "green" : "red"}`}>
+          <div className="label">{(pl?.net_profit ?? 0) >= 0 ? "💰 Net Profit" : "🔴 Net Loss"}</div>
+          <div className="value">₹{fmt(Math.abs(pl?.net_profit ?? 0), 0)}</div>
+          <div className="sub">{pl?.is_profit ? "Profit" : "Loss"}</div>
+        </div>
+      </div>
+
+      <div className="two-col">
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">🔗 Blockchain Status</span>
+            <span className={`badge ${bcStats?.is_valid ? "badge-green" : "badge-red"}`}>
+              {bcStats?.is_valid ? "✓ Verified" : "⚠ Tampered"}
+            </span>
+          </div>
+          {bcStats ? (
+            <div className="form-grid" style={{gap:8}}>
+              <div className="flex justify-between">
+                <span className="text-muted text-sm">Latest block</span>
+                <span className="num text-sm">#{bcStats.latest_index}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted text-sm">Latest hash</span>
+                <span className="monospace">{bcStats.latest_hash?.slice(0,16)}…</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted text-sm">Genesis hash</span>
+                <span className="monospace">{bcStats.genesis_hash?.slice(0,16)}…</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted text-sm">Total transactions</span>
+                <span className="fw-600">{bcStats.total_transactions}</span>
+              </div>
+            </div>
+          ) : <div className="text-muted text-sm">Loading…</div>}
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">📋 Recent Vouchers</span>
+          </div>
+          {recentVouchers.length === 0 ? (
+            <div className="empty-state"><div className="icon">📄</div>No vouchers yet</div>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead><tr>
+                  <th>Number</th><th>Type</th><th>Date</th><th>Amount</th>
+                </tr></thead>
+                <tbody>
+                  {recentVouchers.slice(0,5).map(v => {
+                    const total = v.lines?.reduce((s,l) => s + (l.debit||0), 0) || 0;
+                    return <tr key={v.id}>
+                      <td className="color-accent">{v.voucher_number}</td>
+                      <td><span className="badge badge-blue">{v.voucher_type}</span></td>
+                      <td>{v.date}</td>
+                      <td className="num">₹{fmt(total)}</td>
+                    </tr>;
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Accounts (COA) ──────────────────────────────────────────────────────────
+function AccountsPage() {
+  const [accounts, setAccounts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ code:"", name:"", account_type:"ASSET",
+                                     opening_balance:0, opening_balance_type:"Dr" });
+  const [msg, setMsg] = useState(null);
+  const [search, setSearch] = useState("");
+
+  const load = () => { setLoading(true); api("GET","/accounts").then(d=>{setAccounts(d);setLoading(false);}); };
+  useEffect(load, []);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    try {
+      await api("POST", "/accounts", form);
+      setMsg({type:"success", text:"Account created"});
+      setShowForm(false);
+      load();
+    } catch(e) { setMsg({type:"error", text:e.message}); }
+  };
+
+  const types = ["ASSET","LIABILITY","EQUITY","INCOME","EXPENSE","BANK","CASH",
+                 "SUNDRY_DEBTOR","SUNDRY_CREDITOR","TAX_PAYABLE","TAX_RECEIVABLE",
+                 "FIXED_ASSET","STOCK"];
+  const typeBadge = {"ASSET":"badge-blue","LIABILITY":"badge-red","EQUITY":"badge-yellow",
+                     "INCOME":"badge-green","EXPENSE":"badge-red","BANK":"badge-blue",
+                     "CASH":"badge-blue","SUNDRY_DEBTOR":"badge-blue","SUNDRY_CREDITOR":"badge-red"};
+
+  const filtered = accounts.filter(a =>
+    a.name.toLowerCase().includes(search.toLowerCase()) ||
+    a.code.includes(search) || a.account_type.includes(search.toUpperCase())
+  );
+
+  return (
+    <div>
+      {msg && <div className={`alert alert-${msg.type}`}>{msg.text}</div>}
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">Chart of Accounts</span>
+          <div className="flex gap-2">
+            <input className="form-control" style={{width:200}} placeholder="Search…"
+              value={search} onChange={e=>setSearch(e.target.value)} />
+            <button className="btn btn-primary btn-sm" onClick={()=>setShowForm(true)}>+ New Account</button>
+          </div>
+        </div>
+        {loading ? <div className="loading-center"><div className="spinner"/></div> : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Opening Balance</th><th>Status</th></tr></thead>
+              <tbody>
+                {filtered.map(a=>(
+                  <tr key={a.id}>
+                    <td className="color-accent fw-600">{a.code}</td>
+                    <td>{a.name}{a.is_system && <span className="badge badge-gray" style={{marginLeft:6}}>System</span>}</td>
+                    <td><span className={`badge ${typeBadge[a.account_type]||"badge-gray"}`}>{a.account_type}</span></td>
+                    <td className="num">
+                      {a.opening_balance > 0 ? `₹${fmt(a.opening_balance)} ${a.opening_balance_type}` : "—"}
+                    </td>
+                    <td><span className={`badge ${a.is_active?"badge-green":"badge-red"}`}>
+                      {a.is_active?"Active":"Inactive"}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {showForm && (
+        <div className="modal-overlay" onClick={()=>setShowForm(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Create Account</span>
+              <button className="modal-close" onClick={()=>setShowForm(false)}>×</button>
+            </div>
+            <form onSubmit={submit} className="form-grid form-grid-2">
+              {[["code","Account Code"],["name","Account Name"]].map(([k,l])=>(
+                <div key={k} className="form-group">
+                  <label>{l}</label>
+                  <input className="form-control" value={form[k]} required
+                    onChange={e=>setForm({...form,[k]:e.target.value})} />
+                </div>
+              ))}
+              <div className="form-group">
+                <label>Account Type</label>
+                <select className="form-control" value={form.account_type}
+                  onChange={e=>setForm({...form,account_type:e.target.value})}>
+                  {types.map(t=><option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Opening Balance</label>
+                <input type="number" className="form-control" value={form.opening_balance}
+                  onChange={e=>setForm({...form,opening_balance:parseFloat(e.target.value)||0})} />
+              </div>
+              <div className="form-group">
+                <label>Balance Type</label>
+                <select className="form-control" value={form.opening_balance_type}
+                  onChange={e=>setForm({...form,opening_balance_type:e.target.value})}>
+                  <option value="Dr">Dr (Debit)</option>
+                  <option value="Cr">Cr (Credit)</option>
+                </select>
+              </div>
+              <div className="modal-footer" style={{gridColumn:"span 2",padding:0,marginTop:8}}>
+                <button type="button" className="btn btn-secondary" onClick={()=>setShowForm(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Create Account</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Vouchers ────────────────────────────────────────────────────────────────
+function VouchersPage() {
+  const [vouchers, setVouchers] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [filter, setFilter] = useState({ type: "", from: "", to: "" });
+  const [form, setForm] = useState({
+    voucher_type: "JOURNAL", date: new Date().toISOString().slice(0,10),
+    narration: "", reference: "",
+    lines: [{ account_id:"", account_name:"", debit:0, credit:0, narration:"" },
+            { account_id:"", account_name:"", debit:0, credit:0, narration:"" }]
+  });
+
+  const load = () => {
+    setLoading(true);
+    Promise.all([
+      api("GET","/vouchers", null, {voucher_type:filter.type||null,from_date:filter.from||null,to_date:filter.to||null}),
+      api("GET","/accounts")
+    ]).then(([v,a])=>{setVouchers(v);setAccounts(a);setLoading(false);});
+  };
+  useEffect(load, [filter]);
+
+  const addLine = () => setForm(f=>({...f,lines:[...f.lines,{account_id:"",account_name:"",debit:0,credit:0,narration:""}]}));
+  const removeLine = i => setForm(f=>({...f,lines:f.lines.filter((_,idx)=>idx!==i)}));
+  const updateLine = (i, k, v) => setForm(f=>({...f, lines:f.lines.map((l,idx)=>idx===i?{...l,[k]:v}:l)}));
+
+  const totalDr = form.lines.reduce((s,l)=>s+parseFloat(l.debit||0),0);
+  const totalCr = form.lines.reduce((s,l)=>s+parseFloat(l.credit||0),0);
+  const balanced = Math.abs(totalDr - totalCr) < 0.01;
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!balanced) { setMsg({type:"error", text:"Debits must equal Credits"}); return; }
+    try {
+      const lines = form.lines.map(l => ({
+        ...l,
+        account_name: accounts.find(a=>a.id===l.account_id)?.name || l.account_name,
+        debit: parseFloat(l.debit)||0,
+        credit: parseFloat(l.credit)||0,
+      }));
+      await api("POST", "/vouchers", {...form, lines});
+      setMsg({type:"success", text:"Voucher created & recorded to blockchain"});
+      setShowForm(false);
+      load();
+    } catch(e) { setMsg({type:"error", text:e.message}); }
+  };
+
+  const vTypes = ["PAYMENT","RECEIPT","JOURNAL","SALES","PURCHASE","CONTRA","DEBIT_NOTE","CREDIT_NOTE"];
+  const typeBadge = {PAYMENT:"badge-red",RECEIPT:"badge-green",JOURNAL:"badge-blue",
+                     SALES:"badge-green",PURCHASE:"badge-red",CONTRA:"badge-gray"};
+
+  return (
+    <div>
+      {msg && <div className={`alert alert-${msg.type}`}>{msg.text}</div>}
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">Voucher Entry</span>
+          <div className="flex gap-2" style={{flexWrap:"wrap"}}>
+            <select className="form-control" style={{width:140}} value={filter.type}
+              onChange={e=>setFilter({...filter,type:e.target.value})}>
+              <option value="">All Types</option>
+              {vTypes.map(t=><option key={t}>{t}</option>)}
+            </select>
+            <input type="date" className="form-control" value={filter.from}
+              onChange={e=>setFilter({...filter,from:e.target.value})} style={{width:140}}/>
+            <input type="date" className="form-control" value={filter.to}
+              onChange={e=>setFilter({...filter,to:e.target.value})} style={{width:140}}/>
+            <button className="btn btn-primary btn-sm" onClick={()=>setShowForm(true)}>+ New Voucher</button>
+          </div>
+        </div>
+        {loading ? <div className="loading-center"><div className="spinner"/></div> : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Number</th><th>Type</th><th>Date</th><th>Narration</th>
+                <th>Debits</th><th>Credits</th><th>Block</th></tr></thead>
+              <tbody>
+                {vouchers.map(v=>{
+                  const dr = v.lines?.reduce((s,l)=>s+(l.debit||0),0)||0;
+                  const cr = v.lines?.reduce((s,l)=>s+(l.credit||0),0)||0;
+                  return <tr key={v.id}>
+                    <td className="color-accent fw-600">{v.voucher_number}</td>
+                    <td><span className={`badge ${typeBadge[v.voucher_type]||"badge-blue"}`}>{v.voucher_type}</span></td>
+                    <td>{v.date}</td>
+                    <td className="text-muted" style={{maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.narration||"—"}</td>
+                    <td className="num num-dr">₹{fmt(dr)}</td>
+                    <td className="num num-cr">₹{fmt(cr)}</td>
+                    <td>{v.block_index != null ? <span className="badge badge-blue">#{v.block_index}</span> : "—"}</td>
+                  </tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {showForm && (
+        <div className="modal-overlay" onClick={()=>setShowForm(false)}>
+          <div className="modal" style={{minWidth:700}} onClick={e=>e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">New Voucher</span>
+              <button className="modal-close" onClick={()=>setShowForm(false)}>×</button>
+            </div>
+            <form onSubmit={submit}>
+              <div className="form-grid form-grid-3" style={{marginBottom:16}}>
+                <div className="form-group">
+                  <label>Voucher Type</label>
+                  <select className="form-control" value={form.voucher_type}
+                    onChange={e=>setForm({...form,voucher_type:e.target.value})}>
+                    {vTypes.map(t=><option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Date</label>
+                  <input type="date" className="form-control" value={form.date}
+                    onChange={e=>setForm({...form,date:e.target.value})} required/>
+                </div>
+                <div className="form-group">
+                  <label>Reference</label>
+                  <input className="form-control" value={form.reference}
+                    onChange={e=>setForm({...form,reference:e.target.value})} placeholder="Cheque / Bill no."/>
+                </div>
+              </div>
+              <div className="form-group" style={{marginBottom:16}}>
+                <label>Narration</label>
+                <input className="form-control" value={form.narration}
+                  onChange={e=>setForm({...form,narration:e.target.value})} placeholder="Description"/>
+              </div>
+              <div style={{marginBottom:8}}>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="card-title" style={{fontSize:13}}>Ledger Entries</span>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={addLine}>+ Add Line</button>
+                </div>
+                <table style={{width:"100%",fontSize:12}}>
+                  <thead><tr>
+                    <th>Account</th><th style={{width:120}}>Debit (₹)</th>
+                    <th style={{width:120}}>Credit (₹)</th><th style={{width:140}}>Narration</th><th style={{width:32}}></th>
+                  </tr></thead>
+                  <tbody>
+                    {form.lines.map((line,i)=>(
+                      <tr key={i}>
+                        <td>
+                          <select className="form-control" value={line.account_id}
+                            onChange={e=>updateLine(i,"account_id",e.target.value)} required>
+                            <option value="">— Select —</option>
+                            {accounts.map(a=><option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+                          </select>
+                        </td>
+                        <td>
+                          <input type="number" className="form-control" value={line.debit} min="0" step="0.01"
+                            onChange={e=>updateLine(i,"debit",e.target.value)}/>
+                        </td>
+                        <td>
+                          <input type="number" className="form-control" value={line.credit} min="0" step="0.01"
+                            onChange={e=>updateLine(i,"credit",e.target.value)}/>
+                        </td>
+                        <td>
+                          <input className="form-control" value={line.narration}
+                            onChange={e=>updateLine(i,"narration",e.target.value)}/>
+                        </td>
+                        <td>
+                          {form.lines.length > 2 && (
+                            <button type="button" className="btn btn-danger btn-sm"
+                              onClick={()=>removeLine(i)}>×</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td style={{fontWeight:600,fontSize:12}}>Total</td>
+                      <td className={`num fw-600 ${balanced?"color-success":"color-danger"}`}>₹{fmt(totalDr)}</td>
+                      <td className={`num fw-600 ${balanced?"color-success":"color-danger"}`}>₹{fmt(totalCr)}</td>
+                      <td colSpan={2}>{balanced ? <span className="badge badge-green">Balanced ✓</span>
+                        : <span className="badge badge-red">Diff ₹{fmt(Math.abs(totalDr-totalCr))}</span>}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={()=>setShowForm(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={!balanced}>Save & Post to Blockchain</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Invoices ────────────────────────────────────────────────────────────────
+function InvoicesPage() {
+  const [invoices, setInvoices] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [taxRates, setTaxRates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [invType, setInvType] = useState("SALES");
+  const [form, setForm] = useState({
+    invoice_type:"SALES", date:new Date().toISOString().slice(0,10),
+    due_date:"", party_id:"", place_of_supply:"", notes:"",
+    items:[{description:"",hsn_sac:"",quantity:1,unit:"Nos",rate:0,discount_pct:0,tax_rate:0}]
+  });
+
+  const load = () => {
+    setLoading(true);
+    Promise.all([
+      api("GET","/invoices",null,{invoice_type:invType}),
+      api("GET","/accounts"),
+      api("GET","/tax/rates"),
+    ]).then(([inv,acc,tax])=>{setInvoices(inv);setAccounts(acc);setTaxRates(tax);setLoading(false);});
+  };
+  useEffect(load,[invType]);
+
+  const addItem = () => setForm(f=>({...f,items:[...f.items,{description:"",hsn_sac:"",quantity:1,unit:"Nos",rate:0,discount_pct:0,tax_rate:0}]}));
+  const removeItem = i => setForm(f=>({...f,items:f.items.filter((_,idx)=>idx!==i)}));
+  const updateItem = (i,k,v) => setForm(f=>({...f,items:f.items.map((it,idx)=>idx===i?{...it,[k]:v}:it)}));
+
+  const previewTotal = form.items.reduce((s,it)=>{
+    const taxable = it.quantity*it.rate*(1-it.discount_pct/100);
+    return s + taxable*(1+it.tax_rate/100);
+  },0);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    try {
+      const body = {...form, items: form.items.map(it=>({...it,
+        quantity:parseFloat(it.quantity)||1, rate:parseFloat(it.rate)||0,
+        discount_pct:parseFloat(it.discount_pct)||0, tax_rate:parseFloat(it.tax_rate)||0,
+        cgst_rate:parseFloat(it.tax_rate)/2||0, sgst_rate:parseFloat(it.tax_rate)/2||0,
+        igst_rate:0, taxable_amount:0, cgst_amount:0, sgst_amount:0, igst_amount:0, total:0
+      }))};
+      await api("POST","/invoices",body);
+      setMsg({type:"success",text:"Invoice created & journal entry posted"});
+      setShowForm(false);
+      load();
+    } catch(e) { setMsg({type:"error",text:e.message}); }
+  };
+
+  const parties = accounts.filter(a=>["SUNDRY_DEBTOR","SUNDRY_CREDITOR","ASSET","LIABILITY"].includes(a.account_type));
+  const statusBadge = {UNPAID:"badge-red",PARTIAL:"badge-yellow",PAID:"badge-green"};
+
+  return (
+    <div>
+      {msg && <div className={`alert alert-${msg.type}`}>{msg.text}</div>}
+      <div className="tabs">
+        {["SALES","PURCHASE","CREDIT_NOTE","DEBIT_NOTE"].map(t=>(
+          <div key={t} className={`tab ${invType===t?"active":""}`} onClick={()=>setInvType(t)}>{t}</div>
+        ))}
+      </div>
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">{invType} Invoices</span>
+          <button className="btn btn-primary btn-sm" onClick={()=>{
+            setForm(f=>({...f,invoice_type:invType})); setShowForm(true);
+          }}>+ New Invoice</button>
+        </div>
+        {loading ? <div className="loading-center"><div className="spinner"/></div> : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Invoice #</th><th>Date</th><th>Party</th>
+                <th>Taxable</th><th>Tax</th><th>Total</th><th>Status</th></tr></thead>
+              <tbody>
+                {invoices.map(inv=>(
+                  <tr key={inv.id}>
+                    <td className="color-accent fw-600">{inv.invoice_number}</td>
+                    <td>{inv.date}</td>
+                    <td>{inv.party_name}</td>
+                    <td className="num">₹{fmt(inv.total_taxable)}</td>
+                    <td className="num text-muted">₹{fmt(inv.total_tax)}</td>
+                    <td className="num fw-600">₹{fmt(inv.total_amount)}</td>
+                    <td><span className={`badge ${statusBadge[inv.payment_status]}`}>{inv.payment_status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {showForm && (
+        <div className="modal-overlay" onClick={()=>setShowForm(false)}>
+          <div className="modal" style={{minWidth:760,maxWidth:900}} onClick={e=>e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">New {form.invoice_type} Invoice</span>
+              <button className="modal-close" onClick={()=>setShowForm(false)}>×</button>
+            </div>
+            <form onSubmit={submit}>
+              <div className="form-grid form-grid-3" style={{marginBottom:14}}>
+                <div className="form-group">
+                  <label>Party</label>
+                  <select className="form-control" value={form.party_id}
+                    onChange={e=>setForm({...form,party_id:e.target.value})} required>
+                    <option value="">— Select Party —</option>
+                    {parties.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Invoice Date</label>
+                  <input type="date" className="form-control" value={form.date}
+                    onChange={e=>setForm({...form,date:e.target.value})} required/>
+                </div>
+                <div className="form-group">
+                  <label>Due Date</label>
+                  <input type="date" className="form-control" value={form.due_date}
+                    onChange={e=>setForm({...form,due_date:e.target.value})}/>
+                </div>
+                <div className="form-group" style={{gridColumn:"span 3"}}>
+                  <label>Place of Supply (State)</label>
+                  <input className="form-control" value={form.place_of_supply}
+                    onChange={e=>setForm({...form,place_of_supply:e.target.value})} placeholder="e.g. Maharashtra"/>
+                </div>
+              </div>
+              <div className="mb-2 flex justify-between items-center">
+                <span className="fw-600 text-sm">Line Items</span>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={addItem}>+ Add Item</button>
+              </div>
+              <table style={{width:"100%",fontSize:12,marginBottom:12}}>
+                <thead><tr>
+                  <th>Description</th><th>HSN</th><th style={{width:70}}>Qty</th>
+                  <th style={{width:90}}>Rate</th><th style={{width:70}}>Disc%</th>
+                  <th style={{width:100}}>GST%</th><th style={{width:90}}>Total</th><th style={{width:32}}></th>
+                </tr></thead>
+                <tbody>
+                  {form.items.map((it,i)=>{
+                    const taxable = (it.quantity||1)*(it.rate||0)*(1-(it.discount_pct||0)/100);
+                    const total = taxable*(1+(it.tax_rate||0)/100);
+                    return <tr key={i}>
+                      <td><input className="form-control" value={it.description} required
+                        onChange={e=>updateItem(i,"description",e.target.value)}/></td>
+                      <td><input className="form-control" value={it.hsn_sac}
+                        onChange={e=>updateItem(i,"hsn_sac",e.target.value)}/></td>
+                      <td><input type="number" className="form-control" value={it.quantity} min="0.01" step="0.01"
+                        onChange={e=>updateItem(i,"quantity",e.target.value)}/></td>
+                      <td><input type="number" className="form-control" value={it.rate} min="0" step="0.01"
+                        onChange={e=>updateItem(i,"rate",e.target.value)}/></td>
+                      <td><input type="number" className="form-control" value={it.discount_pct} min="0" max="100" step="0.01"
+                        onChange={e=>updateItem(i,"discount_pct",e.target.value)}/></td>
+                      <td>
+                        <select className="form-control" value={it.tax_rate}
+                          onChange={e=>updateItem(i,"tax_rate",parseFloat(e.target.value)||0)}>
+                          <option value="0">Exempt</option>
+                          {taxRates.filter(t=>t.tax_type==="GST").map(t=>
+                            <option key={t.id} value={t.rate}>{t.name}</option>)}
+                        </select>
+                      </td>
+                      <td className="num fw-600">₹{fmt(total)}</td>
+                      <td>{form.items.length>1&&<button type="button" className="btn btn-danger btn-sm" onClick={()=>removeItem(i)}>×</button>}</td>
+                    </tr>;
+                  })}
+                  <tr>
+                    <td colSpan={6} style={{textAlign:"right",fontWeight:700,paddingRight:8}}>Grand Total:</td>
+                    <td className="num fw-600 color-accent">₹{fmt(previewTotal)}</td>
+                    <td/>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="form-group" style={{marginBottom:14}}>
+                <label>Notes</label>
+                <input className="form-control" value={form.notes}
+                  onChange={e=>setForm({...form,notes:e.target.value})}/>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={()=>setShowForm(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Create Invoice & Post Journal</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Reports ─────────────────────────────────────────────────────────────────
+function ReportsPage() {
+  const [activeReport, setActiveReport] = useState("pl");
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [params, setParams] = useState({ from: "", to: "", as_of: "" });
+
+  const reports = [
+    { id:"pl", label:"Profit & Loss" },
+    { id:"bs", label:"Balance Sheet" },
+    { id:"tb", label:"Trial Balance" },
+    { id:"cf", label:"Cash Flow" },
+    { id:"db", label:"Day Book" },
+    { id:"rec", label:"Receivables" },
+    { id:"pay", label:"Payables" },
+  ];
+
+  const load = async () => {
+    setLoading(true); setData(null);
+    try {
+      let d;
+      if (activeReport === "pl") d = await api("GET","/reports/profit-loss",null,{from_date:params.from||null,to_date:params.to||null});
+      else if (activeReport === "bs") d = await api("GET","/reports/balance-sheet",null,{as_of:params.as_of||null});
+      else if (activeReport === "tb") d = await api("GET","/reports/trial-balance",null,{as_of:params.as_of||null});
+      else if (activeReport === "cf") d = await api("GET","/reports/cash-flow",null,{from_date:params.from||null,to_date:params.to||null});
+      else if (activeReport === "db") d = await api("GET","/reports/day-book");
+      else if (activeReport === "rec") d = await api("GET","/reports/outstanding",null,{report_type:"RECEIVABLE"});
+      else if (activeReport === "pay") d = await api("GET","/reports/outstanding",null,{report_type:"PAYABLE"});
+      setData(d);
+    } catch(e) { setData({error: e.message}); }
+    setLoading(false);
+  };
+
+  useEffect(()=>{ load(); }, [activeReport]);
+
+  const renderReport = () => {
+    if (!data) return null;
+    if (data.error) return <div className="alert alert-error">{data.error}</div>;
+
+    if (activeReport === "pl") return (
+      <div>
+        <div className="two-col" style={{marginBottom:20}}>
+          <div className="card">
+            <div className="card-title mb-2">💰 Income</div>
+            <table><tbody>
+              {data.income?.map(r=><tr key={r.name}><td>{r.name}</td><td className="num">₹{fmt(r.amount)}</td></tr>)}
+              <tr style={{fontWeight:700,borderTop:"1px solid var(--border)"}}>
+                <td>Total Income</td><td className="num color-success">₹{fmt(data.total_income)}</td>
+              </tr>
+            </tbody></table>
+          </div>
+          <div className="card">
+            <div className="card-title mb-2">📉 Expenses</div>
+            <table><tbody>
+              {data.expenses?.map(r=><tr key={r.name}><td>{r.name}</td><td className="num">₹{fmt(r.amount)}</td></tr>)}
+              <tr style={{fontWeight:700,borderTop:"1px solid var(--border)"}}>
+                <td>Total Expenses</td><td className="num color-danger">₹{fmt(data.total_expenses)}</td>
+              </tr>
+            </tbody></table>
+          </div>
+        </div>
+        <div className="card" style={{textAlign:"center",padding:"24px"}}>
+          <div className="text-muted mb-2">Net {data.is_profit ? "Profit" : "Loss"}</div>
+          <div style={{fontSize:36,fontWeight:800}} className={data.is_profit?"color-success":"color-danger"}>
+            ₹{fmt(Math.abs(data.net_profit))}
+          </div>
+        </div>
+      </div>
+    );
+
+    if (activeReport === "tb") return (
+      <div className="card">
+        <div className="flex justify-between mb-2">
+          <span className="card-title">Trial Balance</span>
+          <span className={`badge ${data.balanced?"badge-green":"badge-red"}`}>
+            {data.balanced?"Balanced ✓":"Unbalanced ⚠"}
+          </span>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Account</th><th>Type</th><th>Debit</th><th>Credit</th></tr></thead>
+            <tbody>
+              {data.rows?.map(r=><tr key={r.code}>
+                <td className="color-accent">{r.code}</td><td>{r.name}</td>
+                <td className="text-muted text-sm">{r.type}</td>
+                <td className="num num-dr">{r.debit>0?`₹${fmt(r.debit)}`:"—"}</td>
+                <td className="num num-cr">{r.credit>0?`₹${fmt(r.credit)}`:"—"}</td>
+              </tr>)}
+              <tr style={{fontWeight:700,borderTop:"2px solid var(--border)"}}>
+                <td colSpan={3}>Total</td>
+                <td className="num num-dr">₹{fmt(data.total_debit)}</td>
+                <td className="num num-cr">₹{fmt(data.total_credit)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+
+    if (activeReport === "bs") return (
+      <div className="two-col">
+        <div className="card">
+          <div className="card-title mb-2">🏦 Assets</div>
+          <table><tbody>
+            {data.assets?.map(r=><tr key={r.code}>
+              <td>{r.name}</td><td className="num">₹{fmt(r.amount)}</td>
+            </tr>)}
+            <tr style={{fontWeight:700,borderTop:"1px solid var(--border)"}}>
+              <td>Total Assets</td><td className="num color-accent">₹{fmt(data.total_assets)}</td>
+            </tr>
+          </tbody></table>
+        </div>
+        <div className="card">
+          <div className="card-title mb-2">📋 Liabilities & Equity</div>
+          <table><tbody>
+            {data.liabilities?.map(r=><tr key={r.code}>
+              <td>{r.name}</td><td className="num">₹{fmt(r.amount)}</td>
+            </tr>)}
+            {data.equity?.map(r=><tr key={r.code}>
+              <td>{r.name}</td><td className="num">₹{fmt(r.amount)}</td>
+            </tr>)}
+            <tr style={{fontWeight:700,borderTop:"1px solid var(--border)"}}>
+              <td>Total Liabilities + Equity</td>
+              <td className="num color-accent">₹{fmt(data.total_liabilities_equity)}</td>
+            </tr>
+          </tbody></table>
+          <div className="mt-2">
+            <span className={`badge ${data.balanced?"badge-green":"badge-red"}`}>
+              {data.balanced?"Balanced ✓":"Unbalanced ⚠"}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+
+    if (activeReport === "rec" || activeReport === "pay") return (
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">{data.report}</span>
+          <span className="badge badge-yellow">₹{fmt(data.total_outstanding)} Outstanding</span>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Invoice #</th><th>Date</th><th>Due Date</th><th>Party</th>
+              <th>Total</th><th>Paid</th><th>Outstanding</th><th>Status</th></tr></thead>
+            <tbody>
+              {data.rows?.map(r=><tr key={r.invoice_number}>
+                <td className="color-accent">{r.invoice_number}</td>
+                <td>{r.date}</td><td>{r.due_date||"—"}</td><td>{r.party_name}</td>
+                <td className="num">₹{fmt(r.total_amount)}</td>
+                <td className="num color-success">₹{fmt(r.paid_amount)}</td>
+                <td className="num color-danger fw-600">₹{fmt(r.outstanding)}</td>
+                <td><span className={`badge ${r.payment_status==="PAID"?"badge-green":r.payment_status==="PARTIAL"?"badge-yellow":"badge-red"}`}>
+                  {r.payment_status}</span></td>
+              </tr>)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+
+    return <pre style={{fontSize:12,color:"var(--muted)",overflowX:"auto"}}>{JSON.stringify(data,null,2)}</pre>;
+  };
+
+  return (
+    <div>
+      <div className="card" style={{marginBottom:20}}>
+        <div className="flex gap-3 items-center" style={{flexWrap:"wrap"}}>
+          {reports.map(r=>(
+            <button key={r.id} className={`btn ${activeReport===r.id?"btn-primary":"btn-secondary"}`}
+              onClick={()=>setActiveReport(r.id)}>{r.label}</button>
+          ))}
+          <div className="flex gap-2 items-center" style={{marginLeft:"auto"}}>
+            <input type="date" className="form-control" style={{width:140}} value={params.from}
+              onChange={e=>setParams({...params,from:e.target.value})} placeholder="From"/>
+            <input type="date" className="form-control" style={{width:140}} value={params.to}
+              onChange={e=>setParams({...params,to:e.target.value})} placeholder="To"/>
+            <button className="btn btn-primary btn-sm" onClick={load}>Run</button>
+          </div>
+        </div>
+      </div>
+      {loading ? <div className="loading-center"><div className="spinner"/><span className="text-muted">Generating report…</span></div>
+               : renderReport()}
+    </div>
+  );
+}
+
+// ─── Tax / GST ────────────────────────────────────────────────────────────────
+function TaxPage() {
+  const [tab, setTab] = useState("rates");
+  const [rates, setRates] = useState([]);
+  const [gstr1, setGstr1] = useState(null);
+  const [gstr3b, setGstr3b] = useState(null);
+  const [period, setPeriod] = useState({ from: new Date().getFullYear()+"-04-01", to: new Date().toISOString().slice(0,10) });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(()=>{ api("GET","/tax/rates").then(setRates); },[]);
+
+  const runGstr1 = async () => {
+    setLoading(true);
+    setGstr1(await api("GET","/tax/gstr1",null,{period_from:period.from,period_to:period.to}));
+    setLoading(false);
+  };
+  const runGstr3b = async () => {
+    setLoading(true);
+    setGstr3b(await api("GET","/tax/gstr3b",null,{period_from:period.from,period_to:period.to}));
+    setLoading(false);
+  };
+
+  return (
+    <div>
+      <div className="tabs">
+        {[["rates","Tax Rates"],["gstr1","GSTR-1"],["gstr3b","GSTR-3B"]].map(([id,lbl])=>(
+          <div key={id} className={`tab ${tab===id?"active":""}`} onClick={()=>setTab(id)}>{lbl}</div>
+        ))}
+      </div>
+      {tab==="rates" && (
+        <div className="card">
+          <div className="card-title mb-2">Tax Rate Master</div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Total Rate</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Type</th></tr></thead>
+              <tbody>
+                {rates.map(r=><tr key={r.id}>
+                  <td>{r.name}</td>
+                  <td className="num fw-600">{r.rate}%</td>
+                  <td className="num">{r.cgst||"—"}%</td>
+                  <td className="num">{r.sgst||"—"}%</td>
+                  <td className="num">{r.igst||"—"}%</td>
+                  <td><span className="badge badge-blue">{r.tax_type}</span></td>
+                </tr>)}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {(tab==="gstr1"||tab==="gstr3b") && (
+        <div>
+          <div className="card" style={{marginBottom:16}}>
+            <div className="flex gap-2 items-center">
+              <div className="form-group">
+                <label>Period From</label>
+                <input type="date" className="form-control" value={period.from}
+                  onChange={e=>setPeriod({...period,from:e.target.value})}/>
+              </div>
+              <div className="form-group">
+                <label>Period To</label>
+                <input type="date" className="form-control" value={period.to}
+                  onChange={e=>setPeriod({...period,to:e.target.value})}/>
+              </div>
+              <div style={{marginTop:20}}>
+                <button className="btn btn-primary" onClick={tab==="gstr1"?runGstr1:runGstr3b} disabled={loading}>
+                  {loading?"Computing…":`Compute ${tab.toUpperCase()}`}
+                </button>
+              </div>
+            </div>
+          </div>
+          {loading && <div className="loading-center"><div className="spinner"/></div>}
+          {tab==="gstr1" && gstr1 && (
+            <div>
+              <div className="card" style={{marginBottom:16}}>
+                <div className="card-title mb-2">Summary</div>
+                <div className="stat-grid">
+                  {[["Taxable",gstr1.totals?.taxable],["CGST",gstr1.totals?.cgst],
+                    ["SGST",gstr1.totals?.sgst],["IGST",gstr1.totals?.igst]].map(([l,v])=>(
+                    <div key={l} className="stat-card blue">
+                      <div className="label">{l}</div>
+                      <div className="value" style={{fontSize:18}}>₹{fmt(v)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-title mb-2">B2B Supplies ({gstr1.b2b?.length})</div>
+                <div className="table-wrap">
+                  <table>
+                    <thead><tr><th>Invoice</th><th>Date</th><th>Party</th><th>GSTIN</th><th>Taxable</th><th>CGST</th><th>SGST</th><th>IGST</th></tr></thead>
+                    <tbody>
+                      {gstr1.b2b?.map(r=><tr key={r.invoice_number}>
+                        <td>{r.invoice_number}</td><td>{r.date}</td><td>{r.party_name}</td>
+                        <td className="monospace">{r.party_gstin}</td>
+                        <td className="num">₹{fmt(r.taxable)}</td>
+                        <td className="num">₹{fmt(r.cgst)}</td>
+                        <td className="num">₹{fmt(r.sgst)}</td>
+                        <td className="num">₹{fmt(r.igst)}</td>
+                      </tr>)}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+          {tab==="gstr3b" && gstr3b && (
+            <div className="two-col">
+              <div className="card">
+                <div className="card-title mb-2">3.1 — Outward Supplies</div>
+                {Object.entries(gstr3b["3_1_outward_supplies"]||{}).map(([k,v])=>(
+                  <div key={k} className="flex justify-between mt-1">
+                    <span className="text-muted text-sm">{k.replace(/_/g," ").toUpperCase()}</span>
+                    <span className="num">₹{fmt(v)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="card">
+                <div className="card-title mb-2">4 — ITC Available</div>
+                {Object.entries(gstr3b["4_itc_available"]||{}).map(([k,v])=>(
+                  <div key={k} className="flex justify-between mt-1">
+                    <span className="text-muted text-sm">{k.toUpperCase()}</span>
+                    <span className="num color-success">₹{fmt(v)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="card" style={{gridColumn:"span 2",background:"rgba(79,142,247,.07)"}}>
+                <div className="card-title mb-2 color-accent">6.1 — Net Tax Payable</div>
+                <div className="flex gap-3">
+                  {Object.entries(gstr3b["6_1_net_tax_payable"]||{}).map(([k,v])=>(
+                    <div key={k} className="stat-card" style={{flex:1}}>
+                      <div className="label">{k.toUpperCase()}</div>
+                      <div className="value" style={{fontSize:20}}>{k==="total"?"₹"+fmt(v):fmt(v)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Blockchain Explorer ──────────────────────────────────────────────────────
+function BlockchainPage() {
+  const [stats, setStats] = useState(null);
+  const [blocks, setBlocks] = useState([]);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    const [s, b] = await Promise.all([
+      api("GET","/blockchain/stats"),
+      api("GET","/blockchain/blocks",null,{n:20}),
+    ]);
+    setStats(s); setBlocks(b); setLoading(false);
+  };
+  useEffect(()=>{ load(); },[]);
+
+  const verify = async () => {
+    setVerifying(true);
+    const r = await api("GET","/blockchain/verify");
+    setVerifyResult(r); setVerifying(false);
+  };
+
+  return (
+    <div>
+      <div className="two-col" style={{marginBottom:20}}>
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">⛓ Chain Statistics</span>
+            <button className="btn btn-primary btn-sm" onClick={verify} disabled={verifying}>
+              {verifying?"Verifying…":"🔍 Verify Integrity"}
+            </button>
+          </div>
+          {verifyResult && (
+            <div className={`alert ${verifyResult.valid?"alert-success":"alert-error"}`} style={{marginBottom:12}}>
+              {verifyResult.valid ? "✓ " : "✗ "}{verifyResult.message}
+            </div>
+          )}
+          {stats && (
+            <div className="form-grid" style={{gap:10}}>
+              {[
+                ["Total Blocks", stats.total_blocks],
+                ["Total Transactions", stats.total_transactions],
+                ["Latest Block", "#" + stats.latest_index],
+              ].map(([l,v])=>(
+                <div key={l} className="flex justify-between">
+                  <span className="text-muted text-sm">{l}</span>
+                  <span className="fw-600">{v}</span>
+                </div>
+              ))}
+              <div>
+                <div className="text-muted text-sm" style={{marginBottom:4}}>Latest Hash</div>
+                <div className="monospace">{stats.latest_hash}</div>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="card">
+          <div className="card-title mb-2">🔒 Immutability Guarantee</div>
+          <p className="text-muted text-sm" style={{lineHeight:1.7}}>
+            Every financial transaction is cryptographically hashed and chained.
+            Each block contains a SHA-256 hash of its content + the previous block's hash,
+            forming an unbreakable chain. Any tampering — even a single byte change —
+            invalidates the entire chain from that point forward.
+          </p>
+          <div className="mt-2">
+            <span className={`badge ${stats?.is_valid?"badge-green":"badge-red"}`} style={{fontSize:13,padding:"4px 12px"}}>
+              {stats?.is_valid ? "🔒 Chain Integrity: INTACT" : "⚠ Chain Integrity: COMPROMISED"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title mb-2">Recent Blocks (newest first)</div>
+        {loading ? <div className="loading-center"><div className="spinner"/></div> : (
+          <div>
+            {blocks.map((b, idx) => (
+              <div key={b.index} className="chain-block">
+                <div className="block-header">
+                  <span className="block-idx">Block #{b.index}</span>
+                  <span className="badge badge-blue">{b.block_type}</span>
+                  <span className="text-muted text-sm">{b.timestamp?.slice(0,19).replace("T"," ")}</span>
+                  <span className="text-muted text-sm">{b.transactions?.length} tx</span>
+                </div>
+                <div style={{fontSize:12,marginBottom:6}}>
+                  <span className="text-muted">by </span>
+                  <span className="fw-600">{b.created_by}</span>
+                </div>
+                <div className="hash">
+                  <span className="color-accent">Hash: </span>{b.hash}
+                </div>
+                <div className="hash" style={{marginTop:4}}>
+                  <span className="text-muted">Prev: </span>{b.previous_hash}
+                </div>
+                <div className="hash" style={{marginTop:4}}>
+                  <span className="text-muted">Merkle: </span>{b.merkle_root}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Audit Trail ──────────────────────────────────────────────────────────────
+function AuditPage() {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState({ action:"", resource_type:"" });
+
+  const load = () => {
+    setLoading(true);
+    api("GET","/audit",null,{action:filter.action||null,resource_type:filter.resource_type||null})
+      .then(d=>{setEntries(d);setLoading(false);})
+      .catch(e=>{setLoading(false);});
+  };
+  useEffect(load,[filter]);
+
+  const actionBadge = {CREATE:"badge-green",UPDATE:"badge-yellow",DELETE:"badge-red",
+                       LOGIN:"badge-blue",VERIFY:"badge-blue",IMPORT:"badge-yellow"};
+
+  return (
+    <div>
+      <div className="card" style={{marginBottom:16}}>
+        <div className="flex gap-2 items-center">
+          <select className="form-control" style={{width:160}} value={filter.action}
+            onChange={e=>setFilter({...filter,action:e.target.value})}>
+            <option value="">All Actions</option>
+            {["CREATE","UPDATE","DELETE","LOGIN","VERIFY","IMPORT"].map(a=><option key={a}>{a}</option>)}
+          </select>
+          <select className="form-control" style={{width:160}} value={filter.resource_type}
+            onChange={e=>setFilter({...filter,resource_type:e.target.value})}>
+            <option value="">All Resources</option>
+            {["Account","Voucher","Invoice","User","Blockchain","BankStatement"].map(r=><option key={r}>{r}</option>)}
+          </select>
+          <button className="btn btn-secondary btn-sm" onClick={load}>Refresh</button>
+        </div>
+      </div>
+      <div className="card">
+        <div className="card-title mb-2">🔍 Audit Log — Immutable Trail</div>
+        {loading ? <div className="loading-center"><div className="spinner"/></div> : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Resource</th>
+                <th>Resource ID</th><th>Status</th></tr></thead>
+              <tbody>
+                {entries.map(e=>(
+                  <tr key={e.id}>
+                    <td className="monospace">{e.timestamp?.slice(0,19).replace("T"," ")}</td>
+                    <td className="fw-600">{e.username||e.user_id||"—"}</td>
+                    <td><span className={`badge ${actionBadge[e.action]||"badge-gray"}`}>{e.action}</span></td>
+                    <td className="text-muted">{e.resource_type}</td>
+                    <td className="monospace text-sm">{e.resource_id?.slice(0,12)}…</td>
+                    <td><span className={`badge ${e.status==="SUCCESS"?"badge-green":"badge-red"}`}>{e.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Users page ───────────────────────────────────────────────────────────────
+function UsersPage({ currentUser }) {
+  const [users, setUsers] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [form, setForm] = useState({username:"",email:"",full_name:"",role:"viewer",password:""});
+
+  const load = () => api("GET","/users").then(setUsers);
+  useEffect(()=>{ load(); },[]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    try {
+      await api("POST","/users",form);
+      setMsg({type:"success",text:"User created"});
+      setShowForm(false); load();
+    } catch(e) { setMsg({type:"error",text:e.message}); }
+  };
+
+  const roleBadge = {admin:"badge-red",accountant:"badge-blue",auditor:"badge-yellow",viewer:"badge-gray"};
+
+  return (
+    <div>
+      {msg && <div className={`alert alert-${msg.type}`}>{msg.text}</div>}
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">User Management</span>
+          <button className="btn btn-primary btn-sm" onClick={()=>setShowForm(true)}>+ New User</button>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+            <tbody>
+              {users.map(u=><tr key={u.id}>
+                <td className="fw-600">{u.username}</td>
+                <td>{u.full_name}</td>
+                <td className="text-muted">{u.email}</td>
+                <td><span className={`badge ${roleBadge[u.role]||"badge-gray"}`}>{u.role}</span></td>
+                <td><span className={`badge ${u.is_active?"badge-green":"badge-red"}`}>
+                  {u.is_active?"Active":"Inactive"}</span></td>
+              </tr>)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {showForm && (
+        <div className="modal-overlay" onClick={()=>setShowForm(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Create User</span>
+              <button className="modal-close" onClick={()=>setShowForm(false)}>×</button>
+            </div>
+            <form onSubmit={submit} className="form-grid form-grid-2">
+              {[["username","Username"],["full_name","Full Name"],["email","Email"]].map(([k,l])=>(
+                <div key={k} className="form-group">
+                  <label>{l}</label>
+                  <input className="form-control" value={form[k]} required
+                    onChange={e=>setForm({...form,[k]:e.target.value})}/>
+                </div>
+              ))}
+              <div className="form-group">
+                <label>Role</label>
+                <select className="form-control" value={form.role}
+                  onChange={e=>setForm({...form,role:e.target.value})}>
+                  {["admin","accountant","auditor","viewer"].map(r=><option key={r}>{r}</option>)}
+                </select>
+              </div>
+              <div className="form-group" style={{gridColumn:"span 2"}}>
+                <label>Password</label>
+                <input type="password" className="form-control" value={form.password} required
+                  onChange={e=>setForm({...form,password:e.target.value})}/>
+              </div>
+              <div className="modal-footer" style={{gridColumn:"span 2",padding:0,marginTop:8}}>
+                <button type="button" className="btn btn-secondary" onClick={()=>setShowForm(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Create User</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Sidebar nav config ───────────────────────────────────────────────────────
+const NAV = [
+  { section: "Main", items: [
+    { id:"dashboard", icon:"📊", label:"Dashboard" },
+    { id:"accounts",  icon:"📒", label:"Chart of Accounts" },
+    { id:"vouchers",  icon:"📝", label:"Voucher Entry" },
+    { id:"invoices",  icon:"🧾", label:"Invoices" },
+  ]},
+  { section: "Finance", items: [
+    { id:"reports",   icon:"📈", label:"Reports" },
+    { id:"tax",       icon:"🏛", label:"Tax / GST" },
+  ]},
+  { section: "Security", items: [
+    { id:"blockchain",icon:"⛓", label:"Blockchain Explorer" },
+    { id:"audit",     icon:"🔍", label:"Audit Trail" },
+    { id:"users",     icon:"👥", label:"Users & RBAC" },
+  ]},
+];
+
+// ─── App Shell ────────────────────────────────────────────────────────────────
+const PAGE_TITLES = {
+  dashboard:"Dashboard", accounts:"Chart of Accounts", vouchers:"Voucher Entry",
+  invoices:"Invoices", reports:"Financial Reports", tax:"Tax & GST",
+  blockchain:"Blockchain Explorer", audit:"Audit Trail", users:"User Management",
+};
+
+function App() {
+  const [user, setUser] = useState(null);
+  const [page, setPage] = useState("dashboard");
+
+  useEffect(()=>{
+    if (_token) {
+      api("GET","/auth/me").then(setUser).catch(()=>{ _token=""; localStorage.removeItem("tc_token"); });
+    }
+  },[]);
+
+  if (!user && !_token) return <LoginPage onLogin={d=>setUser(d)}/>;
+  if (!user) return <div className="loading-center"><div className="spinner"/></div>;
+
+  const renderPage = () => {
+    switch(page) {
+      case "dashboard":   return <Dashboard/>;
+      case "accounts":    return <AccountsPage/>;
+      case "vouchers":    return <VouchersPage/>;
+      case "invoices":    return <InvoicesPage/>;
+      case "reports":     return <ReportsPage/>;
+      case "tax":         return <TaxPage/>;
+      case "blockchain":  return <BlockchainPage/>;
+      case "audit":       return <AuditPage/>;
+      case "users":       return user.role==="admin"?<UsersPage currentUser={user}/>
+                                 :<div className="alert alert-error">Admin access required</div>;
+      default:            return <Dashboard/>;
+    }
+  };
+
+  const logout = () => {
+    _token=""; localStorage.removeItem("tc_token"); setUser(null);
+  };
+
+  return (
+    <div id="root">
+      <nav className="sidebar">
+        <div className="sidebar-logo">
+          <h1>⛓ TallyChain</h1>
+          <span>Blockchain Accounting v1.0</span>
+        </div>
+        <div style={{flex:1,overflowY:"auto"}}>
+          {NAV.map(section=>(
+            <div key={section.section} className="nav-section">
+              <div className="nav-label">{section.section}</div>
+              {section.items.map(item=>(
+                <div key={item.id} className={`nav-item ${page===item.id?"active":""}`}
+                  onClick={()=>setPage(item.id)}>
+                  <span className="icon">{item.icon}</span>
+                  {item.label}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div className="sidebar-bottom">
+          <div className="user-badge" onClick={logout} title="Click to logout">
+            <div className="user-avatar">{(user.full_name||user.username||"U")[0].toUpperCase()}</div>
+            <div className="user-info">
+              <div className="name">{user.full_name||user.username}</div>
+              <div className="role">{user.role} · Logout</div>
+            </div>
+          </div>
+        </div>
+      </nav>
+      <div className="main">
+        <div className="topbar">
+          <span className="topbar-title">{PAGE_TITLES[page]}</span>
+          <div className="topbar-actions">
+            <span className="badge badge-green" style={{fontSize:12}}>🔒 Encrypted DB</span>
+            <span className="badge badge-blue" style={{fontSize:12}}>⛓ Blockchain Active</span>
+          </div>
+        </div>
+        <div className="content">
+          {renderPage()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
