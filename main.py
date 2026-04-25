@@ -325,9 +325,9 @@ async def report_cf(from_date: str = None, to_date: str = None,
 
 
 @app.get("/api/reports/day-book")
-async def report_daybook(date: str = None,
+async def report_daybook(from_date: str = None, to_date: str = None,
                           current_user=Depends(require_permission("reports:read"))):
-    return day_book(current_user.company_id, date)
+    return day_book(current_user.company_id, from_date, to_date)
 
 
 @app.get("/api/reports/outstanding")

@@ -55,17 +55,18 @@ class TrialBalancePanel(ttk.Frame):
     def _generate(self):
         try:
             from modules.reporting import trial_balance
-            rows = trial_balance(self.from_var.get(), self.to_var.get())
+            cid = self.session.get("company_id", "default")
+            data = trial_balance(cid, self.to_var.get())
             table_rows = []
             total_dr = total_cr = 0.0
-            for r in rows:
+            for r in data.get("rows", []):
                 dr = r.get("debit", 0) or 0
                 cr = r.get("credit", 0) or 0
                 total_dr += dr
                 total_cr += cr
                 table_rows.append((
-                    r.get("account_name", ""),
-                    r.get("account_type", ""),
+                    r.get("name", ""),
+                    r.get("type", ""),
                     fmt(dr) if dr else "",
                     fmt(cr) if cr else "",
                 ))
@@ -104,7 +105,8 @@ class ProfitLossPanel(ttk.Frame):
     def _generate(self):
         try:
             from modules.reporting import profit_and_loss
-            data = profit_and_loss(self.from_var.get(), self.to_var.get())
+            cid = self.session.get("company_id", "default")
+            data = profit_and_loss(cid, self.from_var.get(), self.to_var.get())
             lines = []
             lines.append("=" * 60)
             lines.append("           PROFIT & LOSS STATEMENT")
@@ -169,7 +171,8 @@ class BalanceSheetPanel(ttk.Frame):
     def _generate(self):
         try:
             from modules.reporting import balance_sheet
-            data = balance_sheet(self.from_var.get(), self.to_var.get())
+            cid = self.session.get("company_id", "default")
+            data = balance_sheet(cid, self.to_var.get())
             lines = []
             lines.append("=" * 60)
             lines.append("               BALANCE SHEET")
@@ -237,7 +240,8 @@ class CashFlowPanel(ttk.Frame):
     def _generate(self):
         try:
             from modules.reporting import cash_flow
-            data = cash_flow(self.from_var.get(), self.to_var.get())
+            cid = self.session.get("company_id", "default")
+            data = cash_flow(cid, self.from_var.get(), self.to_var.get())
             lines = []
             lines.append("=" * 60)
             lines.append("            CASH FLOW STATEMENT")
@@ -245,22 +249,23 @@ class CashFlowPanel(ttk.Frame):
             lines.append("=" * 60)
 
             for section_key, section_label in [
-                ("operating", "OPERATING ACTIVITIES"),
-                ("investing", "INVESTING ACTIVITIES"),
-                ("financing", "FINANCING ACTIVITIES"),
+                ("operating_activities", "OPERATING ACTIVITIES"),
+                ("investing_activities", "INVESTING ACTIVITIES"),
+                ("financing_activities", "FINANCING ACTIVITIES"),
             ]:
                 lines.append(f"\n{section_label}")
                 lines.append("-" * 60)
-                section_total = 0.0
-                for item in data.get(section_key, []):
+                section = data.get(section_key, {})
+                section_total = section.get("total", 0) if isinstance(section, dict) else 0
+                items = section.get("items", []) if isinstance(section, dict) else []
+                for item in items:
                     amt = item.get("amount", 0)
-                    section_total += amt
-                    lines.append(f"  {item.get('name',''):<40} {fmt(amt):>15}")
+                    lines.append(f"  {item.get('narration','') or item.get('voucher',''):<40} {fmt(amt):>15}")
                 lines.append(f"  {'Net ' + section_label:<40} {fmt(section_total):>15}")
 
-            net_change = data.get("net_change", 0)
-            opening = data.get("opening_balance", 0)
-            closing = data.get("closing_balance", opening + net_change)
+            net_change = data.get("net_cash_change", 0)
+            opening = 0
+            closing = net_change
             lines.append("")
             lines.append("=" * 60)
             lines.append(f"  {'Opening Cash Balance':<40} {fmt(opening):>15}")
@@ -311,22 +316,24 @@ class DayBookPanel(ttk.Frame):
     def _generate(self):
         try:
             from modules.reporting import day_book
-            entries = day_book(self.from_var.get(), self.to_var.get())
+            cid = self.session.get("company_id", "default")
+            data = day_book(cid, self.from_var.get() or None, self.to_var.get() or None)
             rows = []
             total_dr = total_cr = 0.0
-            for e in entries:
-                dr = e.get("debit", 0) or 0
-                cr = e.get("credit", 0) or 0
-                total_dr += dr
-                total_cr += cr
-                rows.append((
-                    e.get("date", "")[:10],
-                    e.get("voucher_no", ""),
-                    e.get("voucher_type", ""),
-                    e.get("narration", "")[:50],
-                    fmt(dr) if dr else "",
-                    fmt(cr) if cr else "",
-                ))
+            for e in data.get("entries", []):
+                for line in e.get("lines", []):
+                    dr = line.get("debit", 0) or 0
+                    cr = line.get("credit", 0) or 0
+                    total_dr += dr
+                    total_cr += cr
+                    rows.append((
+                        e.get("date", "")[:10],
+                        e.get("voucher_number", ""),
+                        e.get("voucher_type", ""),
+                        (e.get("narration", "") or "")[:50],
+                        fmt(dr) if dr else "",
+                        fmt(cr) if cr else "",
+                    ))
             self.table.set_rows(rows)
             self.totals.config(
                 text=f"Total Debit: {fmt(total_dr)}   Total Credit: {fmt(total_cr)}",
@@ -375,10 +382,11 @@ class OutstandingPanel(ttk.Frame):
     def _generate(self):
         try:
             from modules.reporting import outstanding_report
-            report = outstanding_report(self.type_var.get())
+            cid = self.session.get("company_id", "default")
+            data = outstanding_report(cid, self.type_var.get().upper())
             rows = []
             total_amt = total_paid = total_outstanding = 0.0
-            for r in report:
+            for r in data.get("rows", []):
                 amt = r.get("total_amount", 0) or 0
                 paid = r.get("paid_amount", 0) or 0
                 outstanding = r.get("outstanding", amt - paid)
@@ -388,12 +396,12 @@ class OutstandingPanel(ttk.Frame):
                 rows.append((
                     r.get("invoice_number", ""),
                     r.get("party_name", ""),
-                    r.get("invoice_date", "")[:10],
+                    r.get("date", "")[:10],
                     r.get("due_date", "")[:10] if r.get("due_date") else "",
                     fmt(amt),
                     fmt(paid),
                     fmt(outstanding),
-                    r.get("status", ""),
+                    r.get("payment_status", ""),
                 ))
             self.table.set_rows(rows)
             self.totals.config(
