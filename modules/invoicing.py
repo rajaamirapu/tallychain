@@ -220,7 +220,7 @@ def list_invoices(company_id: str = "default",
     if party_id:
         invs = [i for i in invs if i.party_id == party_id]
     invs.sort(key=lambda i: i.date, reverse=True)
-    return [i.model_dump() if hasattr(i, "model_dump") else i for i in invs]
+    return invs
 
 
 def record_payment(invoice_id: str, amount: float,

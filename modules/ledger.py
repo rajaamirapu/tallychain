@@ -121,7 +121,7 @@ def get_account(account_id: str, company_id: str = "default") -> Optional[Accoun
 def list_accounts(company_id: str = "default") -> list[Account]:
     db = get_db()
     records = db.col_find("accounts", company_id=company_id)
-    return records  # return plain dicts so UI can use .get()
+    return [Account(**r) for r in records]
 
 
 def get_account_balance(account_id: str, company_id: str = "default",
@@ -242,7 +242,7 @@ def list_vouchers(company_id: str = "default", voucher_type: Optional[str] = Non
     if to_date:
         vouchers = [v for v in vouchers if v.date <= to_date]
     vouchers.sort(key=lambda v: (v.date, v.voucher_number), reverse=True)
-    return [v.model_dump() if hasattr(v, "model_dump") else v for v in vouchers[:limit]]
+    return vouchers[:limit]
 
 
 def get_ledger_statement(account_id: str, company_id: str = "default",
