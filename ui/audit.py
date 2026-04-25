@@ -157,12 +157,12 @@ class ReconciliationPanel(ttk.Frame):
             from modules.ledger import list_accounts
             accounts = list_accounts()
             bank_accounts = [a for a in accounts
-                             if "bank" in a.get("name", "").lower() or
-                                a.get("account_type", "").lower() in ("bank", "cash")]
-            names = [f"{a.get('account_code','')} - {a.get('name','')}" for a in bank_accounts]
+                             if "bank" in a.name.lower() or
+                                a.account_type.lower() in ("bank", "cash")]
+            names = [f"{a.code} - {a.name}" for a in bank_accounts]
             self.account_cb["values"] = names
             self._accounts_map = {
-                f"{a.get('account_code','')} - {a.get('name','')}": a.get("id")
+                f"{a.code} - {a.name}": a.id
                 for a in bank_accounts
             }
             if names:
