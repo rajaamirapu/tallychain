@@ -23,7 +23,7 @@ from database.models import (
     BankStatement, TaxRate, Company,
 )
 from modules.ledger import (
-    create_account, list_accounts, get_account, get_account_balance,
+    create_account, update_account, list_accounts, get_account, get_account_balance,
     get_ledger_statement, create_voucher, list_vouchers, get_voucher,
     seed_default_accounts, get_blockchain,
 )
@@ -182,6 +182,13 @@ async def create_account_route(account: Account,
                                 current_user=Depends(require_permission("accounts:write"))):
     account.company_id = current_user.company_id
     return create_account(account, user_id=current_user.id)
+
+
+@app.put("/api/accounts/{account_id}")
+async def update_account_route(account_id: str, updates: dict,
+                                current_user=Depends(require_permission("accounts:write"))):
+    return update_account(account_id, updates, current_user.company_id,
+                          user_id=current_user.id)
 
 
 @app.get("/api/accounts/{account_id}/balance")
