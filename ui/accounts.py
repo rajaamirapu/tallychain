@@ -73,7 +73,7 @@ class AccountsPanel(ttk.Frame):
         self.tbl.set_rows(rows)
 
     def _new_account(self):
-        if not self.session.get("role") in ("admin","accountant"):
+        if self.session.get("role") not in ("admin","accountant"):
             messagebox.showwarning("Access Denied","Only Admin/Accountant can create accounts.")
             return
         fields = [

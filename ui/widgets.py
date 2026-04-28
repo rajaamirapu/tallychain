@@ -90,7 +90,7 @@ class DataTable(ttk.Frame):
         if self._tuple_mode:
             return self.tree.index(sel[0])
         vals = self.tree.item(sel[0])["values"]
-        return dict(zip(self.columns, vals))
+        return dict(zip(self.columns, [str(v) for v in vals]))
 
     def on_select(self, callback):
         def _handler(event):
