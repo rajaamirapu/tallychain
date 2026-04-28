@@ -21,10 +21,25 @@ def card(parent, title="", **kwargs):
 
 
 class DataTable(ttk.Frame):
-    """Scrollable Treeview table."""
+    """Scrollable Treeview table.
+
+    *columns* accepts two formats:
+      - list of str:   ["code", "name", …]           (dict-row style)
+      - list of tuple:  [("Name", 180, "w"), …]       (tuple-row style)
+    When tuples are supplied the table switches to positional mode: rows
+    can be tuples/lists and *get_selected* returns the Treeview row index
+    (int) instead of a dict.
+    """
     def __init__(self, parent, columns: list, show_index=False, height=14, **kwargs):
         super().__init__(parent, style="Card.TFrame")
-        self.columns = columns
+        self._tuple_mode = bool(columns and isinstance(columns[0], (list, tuple)))
+        if self._tuple_mode:
+            self._col_ids   = [f"c{i}" for i in range(len(columns))]
+            self._col_meta  = columns          # [(display, width, anchor), …]
+        else:
+            self._col_ids   = list(columns)
+            self._col_meta  = None
+        self.columns = self._col_ids
         self._build(height)
 
     def _build(self, height):
@@ -34,16 +49,24 @@ class DataTable(ttk.Frame):
         hsb = ttk.Scrollbar(self, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
 
-        for col in self.columns:
-            txt = col.replace("_", " ").title()
-            self.tree.heading(col, text=txt)
-            w = 120
-            if col in ("id",): w = 0
-            elif col in ("narration","description","name"): w = 200
-            elif col in ("hash","merkle_root","previous_hash"): w = 280
-            elif col in ("code","date","type","status"): w = 90
-            self.tree.column(col, width=w, minwidth=60,
-                             stretch=(col not in ("id","code","date","type","status")))
+        if self._col_meta:
+            for cid, meta in zip(self.columns, self._col_meta):
+                display = meta[0] if len(meta) > 0 else cid
+                width   = meta[1] if len(meta) > 1 else 120
+                anchor  = meta[2] if len(meta) > 2 else "w"
+                self.tree.heading(cid, text=display)
+                self.tree.column(cid, width=width, minwidth=60, anchor=anchor)
+        else:
+            for col in self.columns:
+                txt = col.replace("_", " ").title()
+                self.tree.heading(col, text=txt)
+                w = 120
+                if col in ("id",): w = 0
+                elif col in ("narration","description","name"): w = 200
+                elif col in ("hash","merkle_root","previous_hash"): w = 280
+                elif col in ("code","date","type","status"): w = 90
+                self.tree.column(col, width=w, minwidth=60,
+                                 stretch=(col not in ("id","code","date","type","status")))
 
         self.tree.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
@@ -51,29 +74,47 @@ class DataTable(ttk.Frame):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-    def set_rows(self, rows: list[dict]):
+    def set_rows(self, rows):
         self.tree.delete(*self.tree.get_children())
         for row in rows:
-            vals = [row.get(c, "") for c in self.columns]
+            if isinstance(row, dict):
+                vals = [row.get(c, "") for c in self.columns]
+            else:
+                vals = list(row)
             self.tree.insert("", "end", values=vals)
 
-    def get_selected(self) -> dict | None:
+    def get_selected(self):
         sel = self.tree.selection()
         if not sel:
             return None
+        if self._tuple_mode:
+            return self.tree.index(sel[0])
         vals = self.tree.item(sel[0])["values"]
         return dict(zip(self.columns, vals))
 
     def on_select(self, callback):
-        self.tree.bind("<<TreeviewSelect>>", lambda e: callback(self.get_selected()))
+        def _handler(event):
+            result = self.get_selected()
+            if result is not None:
+                callback(result)
+        self.tree.bind("<<TreeviewSelect>>", _handler)
 
     def on_double_click(self, callback):
         self.tree.bind("<Double-1>", lambda e: callback(self.get_selected()))
 
 
 class FormDialog(tk.Toplevel):
-    """Modal form dialog."""
-    def __init__(self, parent, title: str, fields: list, on_submit,
+    """Modal form dialog.
+
+    Supports two calling patterns:
+      1. Callback: FormDialog(parent, title, fields_dicts, on_submit, label)
+      2. Wait-window: dlg = FormDialog(parent, title, fields_tuples)
+         parent.wait_window(dlg);  data = dlg.result
+
+    *fields* accepts dicts  [{"key": …, "label": …, "type": …, …}]
+    or tuples [(key, label, type, default[, options]), …].
+    """
+    def __init__(self, parent, title: str, fields: list, on_submit=None,
                  submit_label="Save", width=460):
         super().__init__(parent)
         self.title(title)
@@ -81,12 +122,29 @@ class FormDialog(tk.Toplevel):
         self.resizable(False, False)
         self.grab_set()
         self.transient(parent)
-        self._fields = fields
+        self._fields = self._normalise_fields(fields)
         self._vars = {}
         self._on_submit = on_submit
+        self.result = None
         self._build(title, submit_label)
-        self.geometry(f"{width}x{len(fields)*62+120}")
+        self.geometry(f"{width}x{len(self._fields)*62+120}")
         self._center(parent)
+
+    @staticmethod
+    def _normalise_fields(fields):
+        """Convert tuple-style fields to dict-style."""
+        out = []
+        for f in fields:
+            if isinstance(f, dict):
+                out.append(f)
+            else:
+                d = {"key": f[0]}
+                if len(f) > 1: d["label"]   = f[1]
+                if len(f) > 2: d["type"]    = f[2]
+                if len(f) > 3: d["default"] = f[3]
+                if len(f) > 4: d["options"] = f[4]
+                out.append(d)
+        return out
 
     def _center(self, parent):
         self.update_idletasks()
@@ -152,11 +210,15 @@ class FormDialog(tk.Toplevel):
 
     def _submit(self):
         data = {k: v.get() for k, v in self._vars.items()}
-        try:
-            self._on_submit(data)
+        if self._on_submit is not None:
+            try:
+                self._on_submit(data)
+                self.destroy()
+            except Exception as e:
+                messagebox.showerror("Error", str(e), parent=self)
+        else:
+            self.result = data
             self.destroy()
-        except Exception as e:
-            messagebox.showerror("Error", str(e), parent=self)
 
     def set_values(self, data: dict):
         for k, var in self._vars.items():

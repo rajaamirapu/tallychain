@@ -66,8 +66,8 @@ class AuditPanel(ttk.Frame):
         self.table.on_select(self._on_select)
 
         tk.Label(split, text="Detail", bg=SURFACE, fg=MUTED, font=FONT_SMALL).pack(anchor="w", pady=(10, 2))
-        self.detail = scrolled_text(split, height=8)
-        self.detail.pack(fill="x")
+        detail_frame, self.detail = scrolled_text(split, height=8)
+        detail_frame.pack(fill="x")
         self.detail.config(state="disabled")
 
         self._entries_cache = []

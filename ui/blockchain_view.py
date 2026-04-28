@@ -65,8 +65,8 @@ class BlockchainPanel(ttk.Frame):
         right.pack(side="left", fill="both", expand=True, padx=(16, 0))
 
         tk.Label(right, text="Block Detail", bg=SURFACE, fg=TEXT, font=FONT_TITLE).pack(anchor="w", pady=(0, 6))
-        self.detail_text = scrolled_text(right, height=30)
-        self.detail_text.pack(fill="both", expand=True)
+        detail_frame, self.detail_text = scrolled_text(right, height=30)
+        detail_frame.pack(fill="both", expand=True)
         self.detail_text.config(state="disabled")
 
         self._blocks_cache = []
