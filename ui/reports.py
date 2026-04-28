@@ -98,8 +98,8 @@ class ProfitLossPanel(ttk.Frame):
         ttk.Button(hdr, text="Generate", style="Accent.TButton",
                    command=self._generate).pack(side="left")
 
-        self.text_area = scrolled_text(self, height=30)
-        self.text_area.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        text_frame, self.text_area = scrolled_text(self, height=30)
+        text_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
         self.text_area.config(state="disabled")
 
     def _generate(self):
@@ -164,8 +164,8 @@ class BalanceSheetPanel(ttk.Frame):
         ttk.Button(hdr, text="Generate", style="Accent.TButton",
                    command=self._generate).pack(side="left")
 
-        self.text_area = scrolled_text(self, height=30)
-        self.text_area.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        text_frame, self.text_area = scrolled_text(self, height=30)
+        text_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
         self.text_area.config(state="disabled")
 
     def _generate(self):
@@ -233,8 +233,8 @@ class CashFlowPanel(ttk.Frame):
         ttk.Button(hdr, text="Generate", style="Accent.TButton",
                    command=self._generate).pack(side="left")
 
-        self.text_area = scrolled_text(self, height=30)
-        self.text_area.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        text_frame, self.text_area = scrolled_text(self, height=30)
+        text_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
         self.text_area.config(state="disabled")
 
     def _generate(self):
