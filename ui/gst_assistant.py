@@ -22,6 +22,7 @@ class GSTAssistantPanel(ttk.Frame):
         self.session = session
         self._history = []  # conversation history for context
         self._streaming = False
+        self._cancel_stream = False
         self._model = "llama3.2"
         self._build()
 
@@ -184,29 +185,38 @@ class GSTAssistantPanel(ttk.Frame):
     def _stream_response(self, prompt):
         """Run the LLM query in a background thread and stream tokens."""
         self._streaming = True
+        self._cancel_stream = False
         self._send_btn.config(state="disabled", text="...")
 
         self._history.append({"role": "user", "content": prompt})
+        history_snapshot = list(self._history[:-1])
         self._append_text("\nAssistant:\n", "system")
 
         def _worker():
             from modules.gst_assistant import query_stream
             full_response = []
             try:
-                for token in query_stream(prompt, self._model, self._history[:-1]):
+                for token in query_stream(prompt, self._model, history_snapshot):
+                    if self._cancel_stream:
+                        break
                     full_response.append(token)
                     self.after(0, self._append_text, token, "assistant")
             except Exception as e:
-                self.after(0, self._append_text, f"\n[Error] {e}\n", "error")
+                if not self._cancel_stream:
+                    self.after(0, self._append_text, f"\n[Error] {e}\n", "error")
             finally:
                 response_text = "".join(full_response)
-                self._history.append({"role": "assistant", "content": response_text})
-                # Keep history manageable (last 10 exchanges)
-                if len(self._history) > 20:
-                    self._history = self._history[-20:]
-                self.after(0, self._finish_stream)
+                self.after(0, self._finish_worker, response_text)
 
         threading.Thread(target=_worker, daemon=True).start()
+
+    def _finish_worker(self, response_text):
+        """Handle history updates on the main thread after streaming ends."""
+        if not self._cancel_stream:
+            self._history.append({"role": "assistant", "content": response_text})
+            if len(self._history) > 20:
+                self._history = self._history[-20:]
+        self._finish_stream()
 
     def _finish_stream(self):
         self._append_text("\n\n", "assistant")
@@ -227,6 +237,8 @@ class GSTAssistantPanel(ttk.Frame):
         self._chat_text.see("end")
 
     def _clear_chat(self):
+        if self._streaming:
+            self._cancel_stream = True
         self._history.clear()
         self._chat_text.config(state="normal")
         self._chat_text.delete("1.0", "end")
