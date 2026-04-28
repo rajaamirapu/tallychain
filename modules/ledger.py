@@ -110,6 +110,28 @@ def create_account(account: Account, user_id: str = "system") -> Account:
     return account
 
 
+def update_account(account_id: str, updates: dict, company_id: str = "default",
+                   user_id: str = "system") -> Account:
+    db = get_db()
+    data = db.col_get("accounts", account_id)
+    if not data or data.get("company_id") != company_id:
+        raise HTTPException(404, "Account not found")
+    before = dict(data)
+    if "code" in updates and updates["code"] != data["code"]:
+        clash = db.col_find("accounts", code=updates["code"], company_id=company_id)
+        if clash:
+            raise HTTPException(400, f"Account code {updates['code']} already exists")
+    allowed = {"name", "account_type", "opening_balance", "opening_balance_type",
+               "gstin", "pan", "credit_limit", "is_active", "code"}
+    filtered = {k: v for k, v in updates.items() if k in allowed}
+    data.update(filtered)
+    db.col_update("accounts", account_id, data)
+    AuditTrail.log(user_id=user_id, username="", action="UPDATE",
+                   resource_type="Account", resource_id=account_id,
+                   before=before, after=data, company_id=company_id)
+    return Account(**data)
+
+
 def get_account(account_id: str, company_id: str = "default") -> Optional[Account]:
     db = get_db()
     data = db.col_get("accounts", account_id)
