@@ -103,7 +103,7 @@ class VouchersPanel(ttk.Frame):
         from database.engine import get_db
         cid = self.session.get("company_id","default")
         db = get_db()
-        vnum = row.get("voucher_number","")
+        vnum = str(row.get("voucher_number",""))
         vouchers = db.col_find("vouchers", voucher_number=vnum, company_id=cid)
         if not vouchers: return
         v_data = vouchers[0]

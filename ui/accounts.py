@@ -114,7 +114,7 @@ class AccountsPanel(ttk.Frame):
         self._view_ledger_for(sel)
 
     def _view_ledger_for(self, row):
-        code = row.get("code","")
+        code = str(row.get("code",""))
         cid  = self.session.get("company_id","default")
         from database.engine import get_db
         from modules.ledger import get_ledger_statement
