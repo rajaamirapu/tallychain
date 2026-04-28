@@ -142,8 +142,8 @@ class GSTR1Panel(ttk.Frame):
         # Summary tab
         sum_frame = ttk.Frame(nb, style="Card.TFrame")
         nb.add(sum_frame, text="Summary")
-        self.summary_text = scrolled_text(sum_frame, height=20)
-        self.summary_text.pack(fill="both", expand=True, padx=10, pady=10)
+        summary_frame, self.summary_text = scrolled_text(sum_frame, height=20)
+        summary_frame.pack(fill="both", expand=True, padx=10, pady=10)
         self.summary_text.config(state="disabled")
 
     def _compute(self):
@@ -213,8 +213,8 @@ class GSTR3BPanel(ttk.Frame):
         ttk.Button(ctrl, text="Compute GSTR-3B", style="Accent.TButton",
                    command=self._compute).pack(side="left")
 
-        self.text_area = scrolled_text(self, height=30)
-        self.text_area.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        text_frame, self.text_area = scrolled_text(self, height=30)
+        text_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
         self.text_area.config(state="disabled")
 
     def _compute(self):
