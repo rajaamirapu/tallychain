@@ -234,6 +234,10 @@ class GSTAssistantPanel(ttk.Frame):
                 self._history.append({"role": "assistant", "content": response_text})
                 if len(self._history) > 20:
                     self._history = self._history[-20:]
+            else:
+                # Remove orphaned user message to keep alternating user/assistant pairs
+                if self._history and self._history[-1].get("role") == "user":
+                    self._history.pop()
         self._finish_stream(gen)
 
     def _finish_stream(self, gen):
