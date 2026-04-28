@@ -23,6 +23,7 @@ class GSTAssistantPanel(ttk.Frame):
         self._history = []  # conversation history for context
         self._streaming = False
         self._cancel_stream = False
+        self._stream_gen = 0  # generation counter to invalidate stale callbacks
         self._model = "llama3.2"
         self._build()
 
@@ -195,6 +196,8 @@ class GSTAssistantPanel(ttk.Frame):
         """Run the LLM query in a background thread and stream tokens."""
         self._streaming = True
         self._cancel_stream = False
+        self._stream_gen += 1
+        gen = self._stream_gen
         self._send_btn.config(state="disabled", text="...")
 
         self._history.append({"role": "user", "content": prompt})
@@ -209,26 +212,33 @@ class GSTAssistantPanel(ttk.Frame):
                     if self._cancel_stream:
                         break
                     full_response.append(token)
-                    self.after(0, self._append_text, token, "assistant")
+                    self.after(0, self._guarded_append, gen, token, "assistant")
             except Exception as e:
                 if not self._cancel_stream:
-                    self.after(0, self._append_text, f"\n[Error] {e}\n", "error")
+                    self.after(0, self._guarded_append, gen, f"\n[Error] {e}\n", "error")
             finally:
                 response_text = "".join(full_response)
-                self.after(0, self._finish_worker, response_text)
+                self.after(0, self._finish_worker, gen, response_text)
 
         threading.Thread(target=_worker, daemon=True).start()
 
-    def _finish_worker(self, response_text):
-        """Handle history updates on the main thread after streaming ends."""
-        if not self._cancel_stream:
-            self._history.append({"role": "assistant", "content": response_text})
-            if len(self._history) > 20:
-                self._history = self._history[-20:]
-        self._finish_stream()
+    def _guarded_append(self, gen, text, tag):
+        """Only append text if the generation still matches (not cleared)."""
+        if gen == self._stream_gen:
+            self._append_text(text, tag)
 
-    def _finish_stream(self):
-        self._append_text("\n\n", "assistant")
+    def _finish_worker(self, gen, response_text):
+        """Handle history updates on the main thread after streaming ends."""
+        if gen == self._stream_gen and not self._cancel_stream:
+            if response_text and not response_text.startswith("[Error]"):
+                self._history.append({"role": "assistant", "content": response_text})
+                if len(self._history) > 20:
+                    self._history = self._history[-20:]
+        self._finish_stream(gen)
+
+    def _finish_stream(self, gen):
+        if gen == self._stream_gen:
+            self._append_text("\n\n", "assistant")
         self._streaming = False
         self._send_btn.config(state="normal", text="Send")
         self._chat_text.see("end")
@@ -248,6 +258,7 @@ class GSTAssistantPanel(ttk.Frame):
     def _clear_chat(self):
         if self._streaming:
             self._cancel_stream = True
+        self._stream_gen += 1
         self._history.clear()
         self._chat_text.config(state="normal")
         self._chat_text.delete("1.0", "end")
