@@ -241,8 +241,9 @@ class GSTAssistantPanel(ttk.Frame):
         self._finish_stream(gen)
 
     def _finish_stream(self, gen):
-        if gen == self._stream_gen:
-            self._append_text("\n\n", "assistant")
+        if gen != self._stream_gen:
+            return  # stale worker -- don't touch current state
+        self._append_text("\n\n", "assistant")
         self._streaming = False
         self._send_btn.config(state="normal", text="Send")
         self._chat_text.see("end")
@@ -263,6 +264,8 @@ class GSTAssistantPanel(ttk.Frame):
         if self._streaming:
             self._cancel_stream = True
         self._stream_gen += 1
+        self._streaming = False
+        self._send_btn.config(state="normal", text="Send")
         self._history.clear()
         self._chat_text.config(state="normal")
         self._chat_text.delete("1.0", "end")
