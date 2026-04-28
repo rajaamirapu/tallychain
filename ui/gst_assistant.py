@@ -143,9 +143,18 @@ class GSTAssistantPanel(ttk.Frame):
         self._model = self._model_var.get()
 
     def _check_connection(self):
-        """Check Ollama connectivity and refresh model list."""
-        from modules.gst_assistant import check_ollama
-        result = check_ollama()
+        """Check Ollama connectivity in a background thread to avoid blocking the UI."""
+        self._status_label.config(text="Checking...", fg=MUTED)
+
+        def _worker():
+            from modules.gst_assistant import check_ollama
+            result = check_ollama()
+            self.after(0, self._update_connection_status, result)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _update_connection_status(self, result):
+        """Update UI with connection check results (runs on main thread)."""
         if result["status"] == "ok":
             models = result["models"]
             self._model_combo["values"] = models
