@@ -26,6 +26,8 @@ class AccountsPanel(ttk.Frame):
                   background=BG).pack(side="left")
         ttk.Button(hdr, text="+ New Account", style="Primary.TButton",
                    command=self._new_account).pack(side="right")
+        ttk.Button(hdr, text="Edit Account", command=self._edit_account).pack(
+            side="right", padx=(0,8))
         ttk.Button(hdr, text="View Ledger", command=self._view_ledger).pack(
             side="right", padx=(0,8))
 
@@ -102,14 +104,71 @@ class AccountsPanel(ttk.Frame):
 
         FormDialog(self, "New Account", fields, submit, "Create Account")
 
+    def _edit_account(self):
+        sel = self.tbl.get_selected()
+        if not sel:
+            messagebox.showinfo("Select Account", "Select an account to edit first.")
+            return
+        self._edit_account_for(sel)
+
     def _on_row_dbl(self, row):
         if row:
-            self._view_ledger_for(row)
+            self._edit_account_for(row)
+
+    def _edit_account_for(self, row):
+        if self.session.get("role") not in ("admin", "accountant"):
+            messagebox.showwarning("Access Denied", "Only Admin/Accountant can edit accounts.")
+            return
+        code = row.get("code", "")
+        cid = self.session.get("company_id", "default")
+        from database.engine import get_db
+        db = get_db()
+        accs = db.col_find("accounts", code=code, company_id=cid)
+        if not accs:
+            messagebox.showerror("Error", "Account not found.")
+            return
+        acc = accs[0]
+        fields = [
+            {"key": "code", "label": "Account Code"},
+            {"key": "name", "label": "Account Name"},
+            {"key": "account_type", "label": "Account Type", "type": "select",
+             "options": ACCOUNT_TYPES, "default": acc.get("account_type", "ASSET")},
+            {"key": "opening_balance", "label": "Opening Balance", "type": "number",
+             "default": str(acc.get("opening_balance", 0))},
+            {"key": "opening_balance_type", "label": "Balance Type", "type": "select",
+             "options": ["Dr", "Cr"], "default": acc.get("opening_balance_type", "Dr")},
+            {"key": "gstin", "label": "GSTIN (optional)"},
+            {"key": "is_active", "label": "Active", "type": "select",
+             "options": ["Yes", "No"], "default": "Yes" if acc.get("is_active", True) else "No"},
+        ]
+
+        def submit(data):
+            from modules.ledger import update_account
+            updates = {
+                "code": data["code"],
+                "name": data["name"],
+                "account_type": data["account_type"],
+                "opening_balance": float(data["opening_balance"] or 0),
+                "opening_balance_type": data["opening_balance_type"],
+                "gstin": data["gstin"] or None,
+                "is_active": data["is_active"] == "Yes",
+            }
+            update_account(acc["id"], updates, company_id=cid,
+                           user_id=self.session.get("user_id", "system"))
+            messagebox.showinfo("Success", f"Account '{data['name']}' updated.")
+            self.refresh()
+
+        dlg = FormDialog(self, "Edit Account", fields, submit, "Save Changes")
+        dlg.set_values({
+            "code": acc.get("code", ""),
+            "name": acc.get("name", ""),
+            "gstin": acc.get("gstin", "") or "",
+        })
 
     def _view_ledger(self):
         sel = self.tbl.get_selected()
         if not sel:
-            messagebox.showinfo("Select Account","Double-click or select an account first.")
+            messagebox.showinfo("Select Account", "Select an account and click View Ledger.")
             return
         self._view_ledger_for(sel)
 
