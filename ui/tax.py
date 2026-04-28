@@ -275,10 +275,12 @@ class TaxPanel(ttk.Frame):
         nb = ttk.Notebook(self)
         nb.pack(fill="both", expand=True, padx=10, pady=10)
 
+        from ui.gst_assistant import GSTAssistantPanel
         self.panels = {
             "Tax Rates": TaxRatesPanel(nb, self.session),
             "GSTR-1": GSTR1Panel(nb, self.session),
             "GSTR-3B": GSTR3BPanel(nb, self.session),
+            "GST Assistant": GSTAssistantPanel(nb, self.session),
         }
         for label, panel in self.panels.items():
             nb.add(panel, text=label)
