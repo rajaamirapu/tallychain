@@ -87,7 +87,7 @@ class InvoicesPanel(ttk.Frame):
         sel = self.tbl.get_selected()
         if not sel:
             messagebox.showinfo("Select","Select an invoice first."); return
-        inv_num = sel.get("invoice_number","")
+        inv_num = str(sel.get("invoice_number",""))
         if sel.get("payment_status") == "PAID":
             messagebox.showinfo("Paid","This invoice is already fully paid."); return
         PaymentDialog(self, self.session, inv_num, on_done=self.refresh)
@@ -97,7 +97,7 @@ class InvoicesPanel(ttk.Frame):
         from database.engine import get_db
         cid = self.session.get("company_id","default")
         db = get_db()
-        invs = db.col_find("invoices", invoice_number=row.get("invoice_number",""),
+        invs = db.col_find("invoices", invoice_number=str(row.get("invoice_number","")),
                            company_id=cid)
         if not invs: return
         inv = invs[0]
