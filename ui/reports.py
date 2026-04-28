@@ -4,11 +4,37 @@ Financial reports: Trial Balance, P&L, Balance Sheet, Cash Flow, Day Book, Outst
 """
 import tkinter as tk
 from tkinter import ttk, messagebox
-import sys, os
+import sys, os, tempfile, webbrowser
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ui.styles import *
 from ui.widgets import DataTable, section_header, separator, fmt, scrolled_text
+
+
+def _print_report(title, content):
+    """Open the browser print dialog with a formatted report."""
+    safe = (content.replace("&", "&amp;")
+                   .replace("<", "&lt;")
+                   .replace(">", "&gt;"))
+    html = (
+        "<!DOCTYPE html><html><head>"
+        f"<title>{title} - TallyChain</title>"
+        "<style>"
+        "body{font-family:'Courier New',monospace;font-size:12px;margin:30px;}"
+        "@media print{body{margin:10px;}}"
+        "h2{font-family:sans-serif;margin-bottom:4px;}"
+        "p.sub{font-family:sans-serif;color:#666;margin-top:0;}"
+        "</style></head><body>"
+        f"<h2>{title}</h2>"
+        "<p class='sub'>TallyChain Report</p><hr>"
+        f"<pre>{safe}</pre>"
+        "<script>window.onload=function(){window.print();}</script>"
+        "</body></html>"
+    )
+    fd, path = tempfile.mkstemp(suffix=".html", prefix="tallychain_report_")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(html)
+    webbrowser.open("file://" + path)
 
 
 def _date_range_frame(parent, default_from="2024-04-01", default_to="2025-03-31"):
@@ -39,6 +65,8 @@ class TrialBalancePanel(ttk.Frame):
         self.dr_frm.pack(side="left", padx=20)
         ttk.Button(hdr, text="Generate", style="Accent.TButton",
                    command=self._generate).pack(side="left")
+        ttk.Button(hdr, text="Print", command=self._print).pack(side="left", padx=(8, 0))
+        self._report_text = ""
 
         cols = [
             ("Account", 260, "w"),
@@ -71,13 +99,28 @@ class TrialBalancePanel(ttk.Frame):
                     fmt(cr) if cr else "",
                 ))
             self.table.set_rows(table_rows)
-            status = "✓ Balanced" if abs(total_dr - total_cr) < 0.01 else "✗ Unbalanced"
+            status = "Balanced" if abs(total_dr - total_cr) < 0.01 else "Unbalanced"
             color = SUCCESS if abs(total_dr - total_cr) < 0.01 else DANGER
             self.totals.config(
                 text=f"Total Debit: {fmt(total_dr)}   Total Credit: {fmt(total_cr)}   {status}",
                 fg=color)
+            lines = []
+            lines.append(f"{'Account':<30} {'Type':<15} {'Debit':>15} {'Credit':>15}")
+            lines.append("-" * 75)
+            for row in table_rows:
+                lines.append(f"{row[0]:<30} {row[1]:<15} {row[2]:>15} {row[3]:>15}")
+            lines.append("-" * 75)
+            lines.append(f"{'TOTAL':<30} {'':<15} {fmt(total_dr):>15} {fmt(total_cr):>15}")
+            lines.append(f"Status: {status}")
+            self._report_text = "\n".join(lines)
         except Exception as e:
             messagebox.showerror("Error", str(e))
+
+    def _print(self):
+        if not self._report_text:
+            messagebox.showinfo("Print", "Generate the report first.")
+            return
+        _print_report(f"Trial Balance — as on {self.to_var.get()}", self._report_text)
 
     def refresh(self):
         pass
@@ -97,6 +140,7 @@ class ProfitLossPanel(ttk.Frame):
         self.dr_frm.pack(side="left", padx=20)
         ttk.Button(hdr, text="Generate", style="Accent.TButton",
                    command=self._generate).pack(side="left")
+        ttk.Button(hdr, text="Print", command=self._print).pack(side="left", padx=(8, 0))
 
         text_frame, self.text_area = scrolled_text(self, height=30)
         text_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
@@ -145,6 +189,13 @@ class ProfitLossPanel(ttk.Frame):
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
+    def _print(self):
+        content = self.text_area.get("1.0", "end-1c").strip()
+        if not content:
+            messagebox.showinfo("Print", "Generate the report first.")
+            return
+        _print_report("Profit & Loss Statement", content)
+
     def refresh(self):
         pass
 
@@ -163,6 +214,7 @@ class BalanceSheetPanel(ttk.Frame):
         self.dr_frm.pack(side="left", padx=20)
         ttk.Button(hdr, text="Generate", style="Accent.TButton",
                    command=self._generate).pack(side="left")
+        ttk.Button(hdr, text="Print", command=self._print).pack(side="left", padx=(8, 0))
 
         text_frame, self.text_area = scrolled_text(self, height=30)
         text_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
@@ -214,6 +266,13 @@ class BalanceSheetPanel(ttk.Frame):
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
+    def _print(self):
+        content = self.text_area.get("1.0", "end-1c").strip()
+        if not content:
+            messagebox.showinfo("Print", "Generate the report first.")
+            return
+        _print_report("Balance Sheet", content)
+
     def refresh(self):
         pass
 
@@ -232,6 +291,7 @@ class CashFlowPanel(ttk.Frame):
         self.dr_frm.pack(side="left", padx=20)
         ttk.Button(hdr, text="Generate", style="Accent.TButton",
                    command=self._generate).pack(side="left")
+        ttk.Button(hdr, text="Print", command=self._print).pack(side="left", padx=(8, 0))
 
         text_frame, self.text_area = scrolled_text(self, height=30)
         text_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
@@ -280,6 +340,13 @@ class CashFlowPanel(ttk.Frame):
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
+    def _print(self):
+        content = self.text_area.get("1.0", "end-1c").strip()
+        if not content:
+            messagebox.showinfo("Print", "Generate the report first.")
+            return
+        _print_report("Cash Flow Statement", content)
+
     def refresh(self):
         pass
 
@@ -298,6 +365,8 @@ class DayBookPanel(ttk.Frame):
         self.dr_frm.pack(side="left", padx=20)
         ttk.Button(hdr, text="Generate", style="Accent.TButton",
                    command=self._generate).pack(side="left")
+        ttk.Button(hdr, text="Print", command=self._print).pack(side="left", padx=(8, 0))
+        self._report_text = ""
 
         cols = [
             ("Date", 100, "center"),
@@ -338,8 +407,24 @@ class DayBookPanel(ttk.Frame):
             self.totals.config(
                 text=f"Total Debit: {fmt(total_dr)}   Total Credit: {fmt(total_cr)}",
                 fg=MUTED)
+            lines = []
+            lines.append(f"{'Date':<12} {'Voucher No.':<14} {'Type':<12} {'Narration':<30} {'Debit':>12} {'Credit':>12}")
+            lines.append("-" * 92)
+            for row in rows:
+                lines.append(f"{row[0]:<12} {row[1]:<14} {row[2]:<12} {row[3]:<30} {row[4]:>12} {row[5]:>12}")
+            lines.append("-" * 92)
+            lines.append(f"{'':50} {fmt(total_dr):>12} {fmt(total_cr):>12}")
+            self._report_text = "\n".join(lines)
         except Exception as e:
             messagebox.showerror("Error", str(e))
+
+    def _print(self):
+        if not self._report_text:
+            messagebox.showinfo("Print", "Generate the report first.")
+            return
+        _print_report(
+            f"Day Book \u2014 {self.from_var.get()} to {self.to_var.get()}",
+            self._report_text)
 
     def refresh(self):
         pass
@@ -362,6 +447,8 @@ class OutstandingPanel(ttk.Frame):
                         value="payable", style="TRadiobutton").pack(side="left", padx=(0, 20))
         ttk.Button(hdr, text="Generate", style="Accent.TButton",
                    command=self._generate).pack(side="left")
+        ttk.Button(hdr, text="Print", command=self._print).pack(side="left", padx=(8, 0))
+        self._report_text = ""
 
         cols = [
             ("Invoice No.", 130, "center"),
@@ -407,8 +494,23 @@ class OutstandingPanel(ttk.Frame):
             self.totals.config(
                 text=f"Total: {fmt(total_amt)}   Paid: {fmt(total_paid)}   Outstanding: {fmt(total_outstanding)}",
                 fg=MUTED)
+            lines = []
+            lines.append(f"{'Invoice':<14} {'Party':<22} {'Date':<12} {'Due':<12} {'Amount':>12} {'Paid':>12} {'Outstanding':>14} {'Status':<10}")
+            lines.append("-" * 108)
+            for row in rows:
+                lines.append(f"{row[0]:<14} {row[1]:<22} {row[2]:<12} {row[3]:<12} {row[4]:>12} {row[5]:>12} {row[6]:>14} {row[7]:<10}")
+            lines.append("-" * 108)
+            lines.append(f"{'TOTAL':36} {'':12} {fmt(total_amt):>12} {fmt(total_paid):>12} {fmt(total_outstanding):>14}")
+            self._report_text = "\n".join(lines)
         except Exception as e:
             messagebox.showerror("Error", str(e))
+
+    def _print(self):
+        if not self._report_text:
+            messagebox.showinfo("Print", "Generate the report first.")
+            return
+        label = self.type_var.get().title()
+        _print_report(f"Outstanding {label}s", self._report_text)
 
     def refresh(self):
         pass
